@@ -1,0 +1,29 @@
+{
+  "version": 1,
+  "skills": {
+    "building-pydantic-ai-agents": {
+      "source": "pydantic/skills",
+      "sourceType": "github",
+      "skillPath": "skills/building-pydantic-ai-agents/SKILL.md",
+      "computedHash": "e817c7e8500fd17df3652e80f9a6dc6fa78761ad2868831963b21deeb4e33bb9"
+    },
+    "docker": {
+      "source": "mindrally/skills",
+      "sourceType": "github",
+      "skillPath": "docker/SKILL.md",
+      "computedHash": "b2f646b339642b2597a244b0f508b4712ce0fa7bb3c7ad982e0bd11fddcc5630"
+    },
+    "fastapi-python": {
+      "source": "mindrally/skills",
+      "sourceType": "github",
+      "skillPath": "fastapi-python/SKILL.md",
+      "computedHash": "1d7346210a6690d2faeb089f074c0dc20a7056c2c83ac1062a11c1b73158be72"
+    },
+    "python": {
+      "source": "mindrally/skills",
+      "sourceType": "github",
+      "skillPath": "python/SKILL.md",
+      "computedHash": "5966c2861cc999b03e10ef13f07925755acf62f115962a6249ad0d8c826c4df0"
+    }
+  }
+}
