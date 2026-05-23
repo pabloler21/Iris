@@ -49,10 +49,17 @@ Host clawnest-homelab
 
 ## Next session: Fase 2 (Docker + Qdrant)
 - Todo se hace por SSH desde la compu principal: `ssh clawnest-homelab`
-- Agente recomendado: OpenCode con Kimi K2 (boilerplate de docker-compose)
+- Claude Code puede ejecutar comandos remotos directamente via SSH
 - Al final crear decisions/004-qdrant-config.md y handoff-fase-2.md
 
 ## Notes for next agent
 - El homelab ya tiene git y el repo clonado en ~/clawnest
 - Conectarse siempre via: ssh clawnest-homelab
 - No hay Docker instalado todavía — ese es el primer paso de la Fase 2
+- Para verificar que el homelab está online: ssh clawnest-homelab "echo ok"
+
+## Contexto adicional de la sesión
+- Se generó un prompt de preparación para entrevistas técnicas (en el chat,
+  no en el repo). Pablo lo usa con otro agente en paralelo al desarrollo.
+- Temas clave a reforzar mientras se construye ClawNest: async Python,
+  FastAPI DI, RAG conceptual, Docker, Qdrant, LLM fundamentals.
