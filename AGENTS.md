@@ -49,9 +49,8 @@ journalctl -u clawnest -f
 - No long-lived `dev` branch. Feature branches are merged and deleted.
 - See ADR 002 for the full rationale.
 
-## Multi-agent workflow rules
-This project is worked on with multiple AI agents (Claude Code, OpenCode/Kimi,
-others). To keep context coherent across agents:
+## Workflow rules
+This project is developed with Claude Code. To keep context coherent across sessions:
 - CLAUDE.md is a symlink to this file (`ln -s AGENTS.md CLAUDE.md`)
 - At the end of EVERY task, update `notes/handoff-fase-X.md`
 - Create ADR in `decisions/NNN-title.md` for any architectural decision

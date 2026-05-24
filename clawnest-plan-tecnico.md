@@ -1,54 +1,35 @@
 # ClawNest — Plan Técnico MVP (v3)
 ### Documento de instrucciones para implementación multi-agente
-### Compatible con Claude Code, OpenCode, Codex, Cursor, y otros
+### Herramienta de desarrollo: Claude Code
 ### Objetivo: agente AI personal con Job Tracker funcionando en una semana
 
 ---
 
-## Setup multi-agente: Claude Code + OpenCode/Kimi K2
+## Herramienta de desarrollo: Claude Code
 
-Este proyecto está diseñado para ser trabajado con **múltiples agentes AI**
-intercambiables a lo largo del desarrollo. La realidad de un developer en 2026
-es que distintas tareas se hacen mejor con distintos agentes. Este plan asume
-que vas a alternar entre al menos dos:
+Este proyecto se desarrolla con **Claude Code** como único agente de desarrollo.
+Todo el trabajo — configuración, generación de código, debugging, decisiones
+arquitectónicas — se hace desde Claude Code en la compu principal (WSL2).
 
-**Claude Code:**
-- Para tareas que requieren mayor capacidad de razonamiento
-- Configuración inicial compleja, debugging difícil
-- Code review de cosas importantes
-- Cuando necesitás máxima calidad y podés pagar el costo
-
-**OpenCode con Kimi K2 vía OpenRouter:**
-- Para tareas de implementación rutinaria
-- Generación de boilerplate (Pydantic models, scaffolding de FastAPI)
-- Refactoring mecánico
-- Cuando querés ahorrar créditos
-
-Otros agentes compatibles (futuro): Codex CLI, Cursor, Gemini CLI, Windsurf.
-
-## Cómo se mantiene el contexto entre agentes
+## Cómo se mantiene el contexto entre sesiones
 
 La clave para que esto funcione sin caos es el sistema de archivos de contexto:
 
-### AGENTS.md — archivo principal (todos los agentes lo leen)
+### AGENTS.md — archivo principal de contexto
 
-Vive en la raíz del repo. Es el "constitución" del proyecto. Contiene stack,
+Vive en la raíz del repo. Es la "constitución" del proyecto. Contiene stack,
 convenciones, reglas no negociables, contexto del usuario.
 
-Es leído nativamente por: OpenCode, Codex CLI, Cursor, Gemini CLI, Windsurf,
-Continue, Amp, Warp, Goose, y otros.
+### CLAUDE.md — symlink a AGENTS.md
 
-### CLAUDE.md — symlink a AGENTS.md (solo para Claude Code)
-
-Claude Code (a la fecha) no lee AGENTS.md nativamente. Lee CLAUDE.md. Para
-evitar mantener dos archivos, se crea un symlink desde el primer día:
+Claude Code lee CLAUDE.md. Para evitar mantener dos archivos separados,
+se crea un symlink desde el primer día:
 
 ```bash
 ln -s AGENTS.md CLAUDE.md
 ```
 
-Esto hace que Claude Code lea el mismo archivo que los demás agentes. Un archivo,
-una fuente de verdad, cero duplicación.
+Un archivo, una fuente de verdad, cero duplicación.
 
 ### notes/ — handoff notes (cualquier agente puede leer/escribir)
 
@@ -84,7 +65,7 @@ no-negociable.
 
 ## Cómo usar este documento
 
-**Reglas para CUALQUIER IA implementadora (Claude Code, OpenCode, Codex, etc.):**
+**Reglas para Claude Code al implementar:**
 
 - Generar código solo cuando se solicite explícitamente
 - Explicar decisiones técnicas cuando se generen
@@ -120,11 +101,10 @@ Linux, accesible por Telegram desde cualquier lugar del mundo.
 - **FastAPI** — para skills custom complejas
 
 **Importante — distinguir dos cosas que se confunden:**
-- "Kimi K2" como cerebro de **ClawNest** (el agente que estás construyendo)
-- "Kimi K2 vía OpenCode" como **herramienta de desarrollo** (uno de los agentes
-  que vos usás para construir ClawNest)
+- "Kimi K2 (u otro modelo)" como **cerebro de ClawNest** (configurado en OpenClaw para el agente en producción)
+- **Claude Code** como herramienta de desarrollo (el agente que vos usás para construir ClawNest)
 
-Son usos distintos del mismo modelo. Una API key sirve para ambos casos.
+Son roles completamente distintos. La API key de OpenRouter la usa OpenClaw en producción.
 
 **Skill estrella del MVP:** Job Tracker — busca ofertas de AI Engineer en
 LinkedIn, Get on Board, Workana, RemoteOK y We Work Remotely. Filtra por
@@ -137,8 +117,7 @@ keywords relevantes y notifica por Telegram.
 - Embeddings: usar modelo liviano local (all-MiniLM-L6-v2)
 
 **Setup físico de trabajo:**
-- Compu principal Windows 10 + WSL2: donde corre el agente de desarrollo
-  (Claude Code u OpenCode/Kimi)
+- Compu principal Windows 10 + WSL2: donde corre Claude Code (agente de desarrollo)
 - Compu servidor Linux Mint: donde corre ClawNest una vez deployado
 - Conexión entre las dos: SSH vía Tailscale después de la Fase 1
 
@@ -228,8 +207,7 @@ journalctl -u clawnest -f
 - One service per docker-compose service
 
 ## Multi-agent workflow rules
-This project is worked on with multiple AI agents (Claude Code, OpenCode/Kimi,
-others). To keep context coherent across agents:
+This project is developed with Claude Code. To keep context coherent across sessions:
 - CLAUDE.md is a symlink to this file (`ln -s AGENTS.md CLAUDE.md`)
 - At the end of EVERY task, update `notes/handoff-fase-X.md`
 - Create ADR in `decisions/NNN-title.md` for any architectural decision
@@ -400,7 +378,7 @@ What we gain and what we accept as tradeoff.
 YYYY-MM-DD
 
 ## Author
-Pablo + [agent name, e.g., Claude Code or OpenCode/Kimi]
+Pablo + Claude Code
 ```
 
 ### Paso 0.10: Primer ADR sobre el setup multi-agente
@@ -411,16 +389,14 @@ Archivo `decisions/001-multi-agent-context.md`:
 # ADR 001: Multi-agent context management with AGENTS.md + CLAUDE.md symlink
 
 ## Context
-This project will be developed using multiple AI coding agents (Claude Code,
-OpenCode with Kimi K2, possibly Codex/Cursor in the future). Each agent needs
-project context to be effective, but maintaining duplicate context files would
-cause drift.
+This project is developed with Claude Code. The context files must remain
+consistent across sessions to avoid losing context between them.
 
 ## Options considered
 - Maintain separate CLAUDE.md and AGENTS.md: high risk of drift
-- Use only CLAUDE.md: would break OpenCode and other non-Claude agents
+- Use only CLAUDE.md: less flexible if other tools are added later
 - Use only AGENTS.md: Claude Code doesn't read it natively
-- Symlink CLAUDE.md → AGENTS.md: single source of truth, both agents work
+- Symlink CLAUDE.md → AGENTS.md: single source of truth, Claude Code works
 
 ## Decision
 Use AGENTS.md as primary context file, create symlink CLAUDE.md → AGENTS.md.
@@ -483,10 +459,9 @@ A partir de la Fase 1, cada sesión sigue este patrón:
    "Leé notes/handoff-fase-X.md antes de empezar."
    ```
 
-3. **Decirle qué vas a hacer hoy y qué agente sos (opcional pero útil):**
+3. **Decirle qué vas a hacer hoy:**
    ```
-   "Hoy vamos por la Fase Y, paso Y.Z. Estoy usando [Claude Code / OpenCode con
-   Kimi K2]. Procedé."
+   "Hoy vamos por la Fase Y, paso Y.Z. Procedé."
    ```
 
 ## Durante la sesión
@@ -494,9 +469,7 @@ A partir de la Fase 1, cada sesión sigue este patrón:
 - Trabajás normalmente
 - Si surge una decisión arquitectónica importante, pedile al agente que cree
   un ADR en `decisions/NNN-titulo.md`
-- Si el contexto empieza a saturarse:
-  - En Claude Code: usá `/compact` con prompt custom
-  - En OpenCode/otros: cerrá la sesión, abrí una nueva (esos no tienen compact)
+- Si el contexto empieza a saturarse: usá `/compact` con prompt custom
 - Si encontrás un bug y su solución, pedile al agente que lo anote para el
   handoff note
 
@@ -532,24 +505,20 @@ va a empezar sin contexto y vas a perder tiempo.
 
 ---
 
-# Asignación recomendada de agentes por fase
+# Fases del proyecto
 
-Esta es una guía, no es rígida. Adaptá según prefieras y según los créditos
-que tengas disponibles.
+| Fase | Tarea | Duración |
+|------|-------|----------|
+| 0 | Setup de contexto | 1h |
+| 1 | SSH + Tailscale | 4hs |
+| 2 | Docker + Qdrant | 4hs |
+| 3 | OpenClaw setup | 4hs |
+| 4 | Telegram integration | 4hs |
+| 5 | Memoria extendida | 4hs |
+| 6 | Job Tracker | 8hs |
+| 7 | Polish + deploy | 4hs |
 
-| Fase | Tarea | Agente recomendado | Razón |
-|------|-------|--------------------|----|
-| 0 | Setup de contexto | Claude Code | Setup inicial, vale la pena calidad |
-| 1 | SSH + Tailscale | OpenCode/Kimi | Comandos rutinarios de sistema |
-| 2 | Docker + Qdrant | OpenCode/Kimi | docker-compose es boilerplate |
-| 3 | OpenClaw setup | Claude Code | Configuración compleja, debugging |
-| 4 | Telegram integration | OpenCode/Kimi | Integración relativamente directa |
-| 5 | Memoria extendida | Claude Code | Diseño de arquitectura crítico |
-| 6 | Job Tracker | Mixto: Claude Code para diseño, OpenCode/Kimi para scrapers | Tarea grande con partes distintas |
-| 7 | Polish + deploy | Claude Code | Last mile, vale la pena calidad |
-
-**Regla general:** usá Claude Code cuando la calidad importa mucho. Usá
-OpenCode/Kimi cuando la tarea es mecánica.
+Todas las fases se ejecutan con **Claude Code** desde la compu principal (WSL2).
 
 ---
 
@@ -571,7 +540,7 @@ all-MiniLM-L6-v2.
 # FASE 1 — Preparación del homelab
 ### Duración estimada: 4 horas
 ### Dónde se trabaja: Linux Mint físicamente (no hay SSH todavía)
-### Agente recomendado: OpenCode con Kimi K2
+### Agente recomendado: Claude Code
 ### Entregable: Linux Mint accesible por SSH vía Tailscale desde cualquier lado
 
 ## Notas especiales de esta fase
@@ -580,10 +549,10 @@ Esta es la única fase que requiere estar físicamente frente al Linux Mint con
 teclado y monitor. Después de la Fase 1, todo se hace por SSH desde la compu
 principal.
 
-**Tu agente de desarrollo (Claude Code u OpenCode) corre en la compu principal,
-NO en el Linux Mint.** El agente te genera los comandos, vos los ejecutás en
-el Linux Mint físicamente. Una vez configurado SSH al final de la fase, en las
-fases siguientes el agente puede ejecutar comandos en el Linux Mint vía SSH.
+**Claude Code corre en la compu principal (WSL2), NO en el Linux Mint.** Claude Code
+te genera los comandos, vos los ejecutás en el Linux Mint físicamente. Una vez
+configurado SSH al final de la fase, Claude Code puede ejecutar comandos en el
+Linux Mint vía SSH directamente.
 
 ## Pasos a ejecutar
 
@@ -667,7 +636,7 @@ Antes de cerrar la sesión:
 # FASE 2 — Docker y servicios base
 ### Duración estimada: 4 horas
 ### Dónde se trabaja: SSH al Linux Mint desde compu principal
-### Agente recomendado: OpenCode con Kimi K2
+### Agente recomendado: Claude Code
 ### Entregable: Qdrant corriendo en Docker, accesible desde la red Tailscale
 
 ## Pasos a ejecutar
@@ -793,7 +762,7 @@ Para arranque automático y restart en caso de fallo.
 # FASE 4 — Integración con Telegram
 ### Duración estimada: 4 horas
 ### Dónde se trabaja: SSH al Linux Mint
-### Agente recomendado: OpenCode con Kimi K2
+### Agente recomendado: Claude Code
 ### Entregable: agente accesible desde Telegram en el celular
 
 ## Pasos a ejecutar
@@ -913,19 +882,19 @@ Pruebas semánticas por Telegram.
 # FASE 6 — Job Tracker (skill estrella)
 ### Duración estimada: 8 horas (día y medio)
 ### Dónde se trabaja: SSH + compu principal
-### Agente recomendado: Mixto — Claude Code para diseño, OpenCode/Kimi para scrapers
+### Agente recomendado: Claude Code
 ### Entregable: skill que busca ofertas y notifica al usuario
 
 ## Pasos a ejecutar
 
-### Paso 6.1: Diseño de la skill (Claude Code)
+### Paso 6.1: Diseño de la skill
 
 Definir antes de codear:
 - Fuentes: Get on Board, RemoteOK, WeWorkRemotely, LinkedIn, Workana
 - Keywords: AI Engineer, ML Engineer, LLM Engineer, GenAI Engineer
 - Filtros: junior/semi-senior, Python obligatorio, remoto o BA, últimos 7 días
 
-### Paso 6.2: Servicio FastAPI (OpenCode/Kimi)
+### Paso 6.2: Servicio FastAPI
 
 `skills/job_tracker/` con endpoints:
 - `POST /jobs/search`
@@ -934,14 +903,14 @@ Definir antes de codear:
 - `POST /jobs/save`
 - `GET /jobs/saved`
 
-### Paso 6.3: Scrapers/fetchers (OpenCode/Kimi)
+### Paso 6.3: Scrapers/fetchers
 
 Un archivo por fuente, misma interfaz:
 - `fetch_recent_jobs() -> list[Job]`
 
-### Paso 6.4: Filtrado con LLM (Claude Code para el prompt)
+### Paso 6.4: Filtrado con LLM
 
-Kimi K2 evalúa cada job: ¿relevante para AI Engineer Jr con stack Python?
+El modelo configurado en OpenClaw evalúa cada job: ¿relevante para AI Engineer Jr con stack Python?
 
 ### Paso 6.5: Deduplicación
 
@@ -1051,17 +1020,19 @@ Hook: "Tengo un AI Engineer trabajando 24/7 buscándome trabajo mientras yo duer
 
 # Resumen del MVP
 
-| Fase | Contenido | Duración | Agente recomendado |
-|------|-----------|----------|-------------------|
-| 0 | Setup de contexto | 1h | Claude Code |
-| 1 | Homelab + Tailscale | 4hs | OpenCode/Kimi |
-| 2 | Docker + Qdrant | 4hs | OpenCode/Kimi |
-| 3 | OpenClaw + Kimi K2 | 4hs | Claude Code |
-| 4 | Telegram + Nginx + Funnel | 4hs | OpenCode/Kimi |
-| 5 | Memoria extendida | 4hs | Claude Code |
-| 6 | Job Tracker | 8hs | Mixto |
-| 7 | Polish + deploy | 4hs | Claude Code |
-| **Total** | | **33hs (~8 días)** | |
+| Fase | Contenido | Duración |
+|------|-----------|----------|
+| 0 | Setup de contexto | 1h |
+| 1 | Homelab + Tailscale | 4hs |
+| 2 | Docker + Qdrant | 4hs |
+| 3 | OpenClaw + Kimi K2 | 4hs |
+| 4 | Telegram + Nginx + Funnel | 4hs |
+| 5 | Memoria extendida | 4hs |
+| 6 | Job Tracker | 8hs |
+| 7 | Polish + deploy | 4hs |
+| **Total** | | **33hs (~8 días)** |
+
+Todas las fases se ejecutan con **Claude Code** desde la compu principal (WSL2).
 
 ---
 
@@ -1074,24 +1045,14 @@ Hook: "Tengo un AI Engineer trabajando 24/7 buscándome trabajo mientras yo duer
 
 ---
 
-# Notas finales para IAs implementadoras
+# Notas para Claude Code
 
-**Si sos Claude Code:**
-- Lee CLAUDE.md (symlink a AGENTS.md) al inicio
+- Lee CLAUDE.md (symlink a AGENTS.md) al inicio de cada sesión
 - Usá /compact con prompt custom cuando el contexto pase 60%
 - Al terminar tareas: actualizá handoff note + ADRs OBLIGATORIAMENTE
+- Si el handoff note está desactualizado, preguntale al usuario para llenar los gaps antes de asumir nada
 
-**Si sos OpenCode/Codex/Cursor/otros:**
-- Lee AGENTS.md al inicio
-- Cuando el contexto se sature, cerrá y abrí sesión nueva
-- Antes de cerrar: actualizá handoff note + ADRs OBLIGATORIAMENTE
-
-**Si sos cualquier agente y ves que el handoff note está desactualizado:**
-- NO asumas que sabés lo que pasó en sesiones previas
-- Preguntale al usuario para llenar los gaps
-- Después actualizá el handoff note con la info real
-
-**Comunicación con el usuario (Pablo):**
+**Comunicación con Pablo:**
 - Explicar conceptos antes de mostrar código
 - Comentarios en español, código en inglés
 - Usar analogías
