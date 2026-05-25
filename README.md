@@ -1,26 +1,30 @@
-# ClawNest
+# Iris (ex-ClawNest)
 
-Personal AI assistant running on Linux homelab.
+Personal AI assistant running 24/7 on Linux homelab, accessible via Discord.
+Portfolio piece for AI Engineer Jr — Pablo, Buenos Aires.
 
 ## Status
-Currently in development — Fase 2 completed.
+Fase 3.5 completada — bot Iris respondiendo en Discord.
 
 | Fase | Descripción | Estado |
 |------|-------------|--------|
 | 0 | Setup de contexto y repo | ✅ Completa |
 | 1 | Homelab SSH + Tailscale | ✅ Completa |
 | 2 | Docker + Qdrant | ✅ Completa |
-| 3 | OpenClaw + LLM via OpenRouter | ✅ Completa |
-| 4 | Integración Telegram | 🔜 Próxima |
-| 5 | Memoria extendida (Qdrant) | ⏳ Pendiente |
-| 6 | Job Tracker | ⏳ Pendiente |
+| 3 | Hermes Agent + LLM via OpenRouter | ✅ Completa |
+| 3.5 | Migración a Hermes + Discord + Gemini Flash | ✅ Completa |
+| 4 | Pulido: rename repo, /sethome, ddgs fix | 🔜 Próxima |
+| 5 | RAG con Qdrant (search_my_docs skill) | ⏳ Pendiente |
+| 6 | Skills hub: arxiv, blogwatcher, github | ⏳ Pendiente |
 | 7 | Polish + deploy final | ⏳ Pendiente |
 
 ## Stack activo en el homelab
 
-- **Qdrant 1.18.1** — corriendo en Docker, puerto 6333
-- **OpenClaw 2026.5.22** — gateway del agente, systemd user service
-- **Kimi K2.6** (moonshotai/kimi-k2.6) — LLM via OpenRouter
+- **Hermes Agent 0.14.0** — gateway del agente, systemd user service (`hermes-gateway`)
+- **Gemini 2.0 Flash** (google/gemini-2.0-flash-001) — LLM via OpenRouter
+- **Discord** — canal de mensajería (bot: Iris#4138)
+- **DuckDuckGo (ddgs)** — web search sin API key
+- **Qdrant 1.18.1** — corriendo en Docker, puerto 6333 (listo para RAG en Fase 5)
 - **Tailscale** — red privada para acceso remoto seguro
 - **SSH con llaves ed25519** — sin password auth
 
