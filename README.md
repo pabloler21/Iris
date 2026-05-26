@@ -1,4 +1,4 @@
-# Iris (ex-ClawNest)
+# Iris
 
 Personal AI assistant running 24/7 on Linux homelab, accessible via Discord.
 Portfolio piece for AI Engineer Jr — Pablo, Buenos Aires.
