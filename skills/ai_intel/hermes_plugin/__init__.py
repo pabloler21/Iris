@@ -102,13 +102,23 @@ def _fmt_repos(repos: list[dict]) -> list[str]:
     return lines
 
 
-def _fmt_courses(courses: list[dict]) -> list[str]:
+def _fmt_courses(courses: list[dict], query_is_courses: bool = False) -> list[str]:
     """Formatea la sección de cursos y certificaciones.
 
     Formato: • [DD-mmm] Título (🆓 si es gratis) — Provider 🔗 URL
     Misma estrategia que _fmt_news: fecha inline para que el LLM no la pierda.
+
+    Cuando `query_is_courses=True` (el usuario preguntó específicamente por cursos)
+    devuelve una línea informativa en lugar de lista vacía, para que el LLM no
+    tenga que inventar qué fuentes se chequearon.
     """
     if not courses:
+        if query_is_courses:
+            return [
+                "📚 **Cursos y certificaciones** — sin anuncios recientes en este período.",
+                "  Fuentes chequeadas: NVIDIA DLI, Coursera, fast.ai, Google Dev, AWS ML Blog.",
+                "  Nota: los cursos no se anuncian todas las semanas — probá con `days=30` o más.",
+            ]
         return []
 
     lines = [f"📚 **Cursos y certificaciones** ({len(courses)} nuevos)"]
@@ -194,7 +204,9 @@ def _format_response(data: dict, query_type: str) -> str:
             sections.append(s)
 
     if query_type in ("all", "courses"):
-        s = _fmt_courses(data.get("courses", []))
+        # query_is_courses=True cuando el usuario preguntó específicamente por cursos
+        # → mostrar mensaje informativo aunque esté vacío (en vez de silencio)
+        s = _fmt_courses(data.get("courses", []), query_is_courses=(query_type == "courses"))
         if s:
             sections.append(s)
 
