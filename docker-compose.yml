@@ -16,3 +16,25 @@ services:
       timeout: 10s
       retries: 3
       start_period: 20s
+
+  search_my_docs:
+    build: ./skills/search_my_docs
+    container_name: iris-search-docs
+    ports:
+      - "8001:8001"
+    environment:
+      # Qdrant corre en la red interna de Docker — usamos el nombre del servicio
+      - QDRANT_URL=http://qdrant:6333
+      # API key de OpenRouter para embeddings (text-embedding-3-small)
+      - OPENROUTER_API_KEY=${OPENROUTER_API_KEY}
+      - EMBEDDING_MODEL=openai/text-embedding-3-small
+    depends_on:
+      qdrant:
+        condition: service_healthy
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "python -c \"import urllib.request; urllib.request.urlopen('http://localhost:8001/health')\""]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 15s

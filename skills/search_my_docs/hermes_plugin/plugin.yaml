@@ -1,0 +1,8 @@
+name: search-my-docs
+version: 1.0.0
+description: "RAG skill — searches Pablo's personal knowledge base (docs, papers, notes) stored in Qdrant. Use when the user asks about documents they've saved, papers they've read, or personal notes."
+author: pabloler21
+kind: backend
+provides_tools:
+  - search_my_docs
+  - ingest_doc
