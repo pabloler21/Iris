@@ -1,15 +1,18 @@
 """Fuente: RSS de plataformas y blogs educativos de AI.
 
-Feeds incluidos:
-  - DeepLearning.AI The Batch  — Andrew Ng; anuncia cursos de AI constantemente
-  - NVIDIA Developer Blog      — anuncios del Deep Learning Institute (DLI)
-  - Coursera Blog              — lanzamientos de cursos de OpenAI, Google, Meta, etc.
-  - fast.ai                   — cursos gratuitos, comunidad de ML
-  - Google Developers          — codelabs, workshops, certificaciones de Google Cloud/AI
+Feeds incluidos (todos verificados con URL funcional):
+  - NVIDIA Developer Blog  — anuncios del Deep Learning Institute (DLI)
+  - Coursera Blog          — lanzamientos de cursos de OpenAI, Google, Meta, etc.
+  - fast.ai               — cursos gratuitos, comunidad de ML práctica
+  - Google Dev Blog        — codelabs, workshops, certificaciones de Google Cloud/AI
+  - AWS ML Blog            — cursos y labs de AWS en AI/ML
 
-Estrategia: no existe un RSS específico de "solo cursos" en ninguna plataforma.
-Se descargan los feeds completos y se filtra por keywords educativos en título + summary.
-Falsos positivos son bajos porque los keywords son bastante específicos del dominio educativo.
+Notas:
+  - DeepLearning.AI: sin RSS funcional (404 en todos los paths probados) → excluido
+  - Anthropic/OpenAI: sin RSS de cursos específicos → cubiertos por rss_feeds.py
+
+Estrategia: se descargan los feeds completos y se filtra por keywords educativos
+con word boundaries para evitar falsos positivos (ej: "course" en "Coursera").
 """
 
 from __future__ import annotations
@@ -26,30 +29,56 @@ from models.schemas import CourseEntry
 
 logger = logging.getLogger(__name__)
 
-# Feeds verificados — mezcla de plataformas educativas y blogs de compañías
-# que anuncian cursos frecuentemente
+# Feeds verificados — plataformas educativas y blogs de compañías que
+# anuncian cursos y certificaciones de AI con frecuencia
 COURSE_FEEDS = {
-    "DeepLearning.AI": "https://www.deeplearning.ai/the-batch/feed/",
-    "NVIDIA DLI":      "https://developer.nvidia.com/blog/feed/",
-    "Coursera":        "https://blog.coursera.org/feed/",
-    "fast.ai":         "https://www.fast.ai/index.xml",
-    "Google Dev":      "https://developers.googleblog.com/feeds/posts/default",
+    "NVIDIA DLI": "https://developer.nvidia.com/blog/feed/",
+    "Coursera":   "https://blog.coursera.org/feed/",
+    "fast.ai":    "https://www.fast.ai/index.xml",
+    "Google Dev": "https://developers.googleblog.com/feeds/posts/default",
+    "AWS ML":     "https://aws.amazon.com/blogs/machine-learning/feed/",
 }
 
-# Keywords que confirman que el post es sobre un curso, certificación o recurso educativo.
-# Intencionalmente específicos para minimizar falsos positivos.
-COURSE_KEYWORDS: frozenset[str] = frozenset({
-    "course", "certification", "certificate", "certif",
-    "workshop", "bootcamp", "nanodegree", "specialization",
-    "curriculum", "mooc", "credential", "learning path",
-    "enroll", "cohort", "tutorial series", "codelabs",
-    "hands-on lab", "online class", "online course",
-})
+# Keywords que confirman que el post anuncia un curso, certificación o recurso educativo.
+# IMPORTANTE: se usa matching con word boundaries (\b) para evitar que "course"
+# matchee contra "Coursera" o "training" contra "post-training quantization".
+_COURSE_KEYWORDS = (
+    "course",
+    "certification",
+    "certificate",
+    "certif",
+    "workshop",
+    "bootcamp",
+    "nanodegree",
+    "specialization",
+    "curriculum",
+    "mooc",
+    "credential",
+    "learning path",
+    "enroll",
+    "cohort",
+    "tutorial series",
+    "codelabs",
+    "hands-on lab",
+    "online class",
+    "online course",
+    "training program",
+    "training course",
+    "new class",
+    "free access",
+)
+
+# Regex compilado con word boundaries — más preciso que substring match simple
+_COURSE_PATTERN = re.compile(
+    r"\b(" + "|".join(re.escape(kw) for kw in _COURSE_KEYWORDS) + r")\b",
+    re.IGNORECASE,
+)
 
 # Keywords de gratuidad — para mostrar 🆓 en el output
-FREE_KEYWORDS: frozenset[str] = frozenset({
-    "free", "gratuito", "gratis", "no cost", "open access", "at no cost",
-})
+_FREE_PATTERN = re.compile(
+    r"\b(free|gratuito|gratis|no cost|open access|at no cost)\b",
+    re.IGNORECASE,
+)
 
 
 def _parse_date(entry) -> datetime | None:
@@ -79,15 +108,19 @@ def _clean_html(text: str, max_len: int = 200) -> str:
 
 
 def _is_course_related(title: str, summary: str) -> bool:
-    """True si título o summary mencionan un curso, certificación o recurso educativo."""
-    combined = (title + " " + summary).lower()
-    return any(kw in combined for kw in COURSE_KEYWORDS)
+    """True si título o summary contienen un keyword educativo (con word boundary).
+
+    Usa regex con \\b en lugar de substring match para evitar falsos positivos como:
+      - "course" en "Coursera"
+      - "training" en "post-training quantization"
+      - "lab" en "LLM laboratory"
+    """
+    return bool(_COURSE_PATTERN.search(title + " " + summary))
 
 
 def _is_free(title: str, summary: str) -> bool:
-    """True si el recurso parece gratuito."""
-    combined = (title + " " + summary).lower()
-    return any(kw in combined for kw in FREE_KEYWORDS)
+    """True si el recurso parece gratuito (con word boundary)."""
+    return bool(_FREE_PATTERN.search(title + " " + summary))
 
 
 async def _fetch_feed(name: str, url: str) -> list:
@@ -150,7 +183,7 @@ async def fetch_new_courses(
                     summary_raw = _clean_html(raw)
                     break
 
-            # Filtro principal: descartar posts que no sean cursos/certs
+            # Filtro principal con word boundaries — descarta posts que no sean cursos/certs
             if not _is_course_related(title, summary_raw):
                 continue
 
