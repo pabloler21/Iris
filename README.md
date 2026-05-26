@@ -21,7 +21,7 @@ Fase 6 completada — ai_intel skill operativa: modelos, repos GitHub, noticias 
 ## Stack activo en el homelab
 
 - **Hermes Agent 0.14.0** — gateway del agente, systemd user service (`hermes-gateway`)
-- **DeepSeek V4 Flash** (deepseek/deepseek-v4-flash) — LLM via OpenRouter
+- **Kimi K2.6** (moonshotai/kimi-k2.6) — LLM via OpenRouter
 - **Discord** — canal de mensajería (bot: Iris#4138)
 - **DuckDuckGo (ddgs)** — web search sin API key
 - **Qdrant 1.18.1** — corriendo en Docker, puerto 6333

@@ -115,12 +115,9 @@ def _fmt_courses(courses: list[dict], query_is_courses: bool = False) -> list[st
     if not courses:
         if query_is_courses:
             return [
-                "📚 **Cursos y certificaciones** — 0 resultados en RSS feeds monitoreados.",
-                "  Los feeds cubren: NVIDIA DLI, Coursera Blog, fast.ai, Google Dev, AWS ML.",
-                "  Plataformas como DeepLearning.AI, Udemy, edX NO tienen RSS → no están en estos datos.",
-                "  ACCIÓN REQUERIDA: Para cursos de DeepLearning.AI u otras plataformas,",
-                "  usá web_search con query 'new AI courses May 2026 site:deeplearning.ai OR site:coursera.org'.",
-                "  NO respondas con cursos de tu conocimiento propio — están desactualizados.",
+                "📚 **Cursos y certificaciones** — 0 resultados (RSS + búsqueda web).",
+                "  Esta semana no se anunciaron cursos nuevos en las fuentes monitoreadas.",
+                "  Fuentes: NVIDIA DLI, Coursera, fast.ai, Google Dev, AWS ML, DeepLearning.AI (web).",
             ]
         return []
 
