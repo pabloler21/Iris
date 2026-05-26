@@ -71,7 +71,24 @@ async def fetch_trending_repos(days: int = 7, limit: int = 10) -> tuple[list[Rep
         logger.error("GitHub API error: %s", e)
         return [], f"GitHub: {e}"
 
-    # Deduplicar por full_name y ordenar por estrellas
+    # Keywords que confirman que el repo es realmente de AI/LLM
+    AI_KEYWORDS = {
+        "llm", "gpt", "bert", "transformer", "language model", "neural",
+        "ai ", "a.i.", "agent", "rag", "embedding", "chatbot", "inference",
+        "openai", "anthropic", "gemini", "claude", "mistral", "deepseek",
+        "diffusion", "generative", "fine-tun", "finetun", "multimodal",
+    }
+
+    def _is_ai_related(item: dict) -> bool:
+        """Verifica que nombre o descripción contengan keywords de AI."""
+        text = (
+            (item.get("full_name") or "") + " " +
+            (item.get("description") or "") +
+            " ".join(item.get("topics", []))
+        ).lower()
+        return any(kw in text for kw in AI_KEYWORDS)
+
+    # Deduplicar por full_name, filtrar por keywords, ordenar por estrellas
     seen: set[str] = set()
     repos: list[RepoEntry] = []
 
@@ -80,6 +97,10 @@ async def fetch_trending_repos(days: int = 7, limit: int = 10) -> tuple[list[Rep
         if full_name in seen:
             continue
         seen.add(full_name)
+
+        if not _is_ai_related(item):
+            logger.debug("Repo filtrado (sin keywords AI): %s", full_name)
+            continue
 
         repos.append(RepoEntry(
             name=full_name,
