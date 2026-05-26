@@ -1,0 +1,7 @@
+name: ai-intel
+version: 1.0.0
+description: "AI news & intel: new models on OpenRouter/HuggingFace, trending GitHub repos in AI, and announcements from OpenAI, DeepMind, Anthropic, Meta, TLDR AI, and more."
+author: pabloler21
+kind: backend
+provides_tools:
+  - ai_intel

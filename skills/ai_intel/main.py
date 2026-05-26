@@ -1,0 +1,97 @@
+"""
+ai_intel — Skill de inteligencia sobre novedades en AI.
+
+Endpoints:
+  GET /health
+  GET /models?days=7    — modelos nuevos (OpenRouter + HuggingFace)
+  GET /repos?days=7     — repos trending en AI (GitHub)
+  GET /news?days=7      — noticias de blogs de compañías de AI
+  GET /summary?days=7   — todo junto (el que usa Iris por defecto)
+"""
+
+import asyncio
+import logging
+from typing import Any
+
+from fastapi import FastAPI, Query
+
+from models.schemas import IntelResponse
+from sources.openrouter import fetch_new_models as or_models
+from sources.huggingface import fetch_new_models as hf_models
+from sources.github import fetch_trending_repos
+from sources.rss_feeds import fetch_news
+
+logger = logging.getLogger(__name__)
+
+app = FastAPI(
+    title="ai_intel",
+    description="Skill RAG: novedades de AI — modelos, repos, noticias.",
+    version="1.0.0",
+)
+
+
+# --- Health -------------------------------------------------------------------
+
+@app.get("/health")
+def health() -> dict[str, Any]:
+    return {"status": "ok", "service": "ai_intel"}
+
+
+# --- Endpoints individuales ---------------------------------------------------
+
+@app.get("/models", response_model=IntelResponse)
+async def get_models(days: int = Query(default=7, ge=1, le=30)) -> IntelResponse:
+    """Modelos nuevos en OpenRouter y HuggingFace."""
+    (or_list, or_err), (hf_list, hf_err) = await asyncio.gather(
+        or_models(days),
+        hf_models(days),
+    )
+    errors = [e for e in [or_err, hf_err] if e]
+    # OpenRouter primero (tiene pricing), luego HuggingFace
+    combined = or_list + hf_list
+    return IntelResponse(type="models", days=days, models=combined, errors=errors)
+
+
+@app.get("/repos", response_model=IntelResponse)
+async def get_repos(days: int = Query(default=7, ge=1, le=30)) -> IntelResponse:
+    """Repos trending en AI/LLM en GitHub."""
+    repos, error = await fetch_trending_repos(days)
+    errors = [error] if error else []
+    return IntelResponse(type="repos", days=days, repos=repos, errors=errors)
+
+
+@app.get("/news", response_model=IntelResponse)
+async def get_news(days: int = Query(default=7, ge=1, le=30)) -> IntelResponse:
+    """Noticias de blogs de compañías de AI (OpenAI, DeepMind, Anthropic, etc.)."""
+    news, feed_errors = await fetch_news(days)
+    return IntelResponse(type="news", days=days, news=news, errors=feed_errors)
+
+
+# --- Endpoint principal (el que usa Iris) -------------------------------------
+
+@app.get("/summary", response_model=IntelResponse)
+async def get_summary(days: int = Query(default=7, ge=1, le=30)) -> IntelResponse:
+    """Todo junto: modelos + repos + noticias de los últimos N días."""
+    (or_list, or_err), (hf_list, hf_err), (repos, repo_err), (news, feed_errs) = (
+        await asyncio.gather(
+            or_models(days),
+            hf_models(days),
+            fetch_trending_repos(days),
+            fetch_news(days),
+        )
+    )
+    errors = [e for e in [or_err, hf_err, repo_err] if e] + feed_errs
+    models = or_list + hf_list
+
+    logger.info(
+        "Summary [%d días]: %d modelos, %d repos, %d noticias, %d errores",
+        days, len(models), len(repos), len(news), len(errors),
+    )
+    return IntelResponse(
+        type="all",
+        days=days,
+        models=models,
+        repos=repos,
+        news=news,
+        errors=errors,
+    )
