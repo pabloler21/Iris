@@ -19,13 +19,14 @@ SKILL_BASE_URL = "http://localhost:8002"
 AI_INTEL_SCHEMA = {
     "name": "ai_intel",
     "description": (
-        "Obtiene novedades del mundo de AI: modelos nuevos en OpenRouter y HuggingFace, "
-        "repositorios nuevos en GitHub con temática AI/LLM, noticias de "
-        "OpenAI, DeepMind, TLDR AI, ArXiv y más, y cursos/certificaciones nuevos de "
-        "NVIDIA DLI, DeepLearning.AI, Coursera y fast.ai. "
+        "Obtiene novedades del mundo de AI vía RSS y APIs: modelos nuevos en OpenRouter y "
+        "HuggingFace, repositorios nuevos en GitHub con temática AI/LLM, noticias de "
+        "OpenAI, DeepMind, TLDR AI, ArXiv y más, y cursos/certificaciones de "
+        "NVIDIA DLI, Coursera, fast.ai, Google Dev y AWS ML. "
         "Usalo cuando Pablo pregunte qué hay de nuevo en AI, qué modelos salieron, "
-        "qué está trending en GitHub, qué anunciaron las compañías de AI, "
-        "o si hay cursos o certificaciones nuevas. "
+        "qué está trending en GitHub, o qué anunciaron las compañías de AI. "
+        "LÍMITE IMPORTANTE: DeepLearning.AI NO tiene RSS → si Pablo pregunta "
+        "específicamente por cursos de DeepLearning.AI, usá web_search en vez de este tool. "
         "IMPORTANTE: al presentar la respuesta, conservá siempre las fechas y URLs."
     ),
     "parameters": {
