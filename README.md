@@ -4,7 +4,7 @@ Personal AI assistant running 24/7 on Linux homelab, accessible via Discord.
 Portfolio piece for AI Engineer Jr — Pablo, Buenos Aires.
 
 ## Status
-Fase 4 completada — rename a Iris, APIConnectionError resuelto, respuestas en ~22s.
+Fase 5 completada — RAG operativo: Iris indexa y busca en knowledge base personal vía Qdrant.
 
 | Fase | Descripción | Estado |
 |------|-------------|--------|
@@ -14,7 +14,7 @@ Fase 4 completada — rename a Iris, APIConnectionError resuelto, respuestas en 
 | 3 | Hermes Agent + LLM via OpenRouter | ✅ Completa |
 | 3.5 | Migración a Hermes + Discord + Gemini Flash | ✅ Completa |
 | 4 | Pulido: rename → Iris, fix APIConnectionError post-ddgs | ✅ Completa |
-| 5 | RAG con Qdrant (search_my_docs skill) | ⏳ Pendiente |
+| 5 | RAG con Qdrant (search_my_docs + ingest_doc) | ✅ Completa |
 | 6 | Skills hub: arxiv, blogwatcher, github | ⏳ Pendiente |
 | 7 | Polish + deploy final | ⏳ Pendiente |
 
