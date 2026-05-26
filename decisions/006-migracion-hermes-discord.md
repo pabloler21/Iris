@@ -70,11 +70,27 @@ es grande (33+ tools, ~52KB). El config `streaming: false` no era respetado corr
 para forzar `_use_streaming = False` incondicionalmente.
 **Backup:** `agent/conversation_loop.py.bak`
 
-### Patch 2: TCP keepalives custom (`run_agent.py`)
+### Patch 2 (v1): TCP keepalives custom (`run_agent.py`)
 **Problema:** `_build_keepalive_http_client` creaba un httpx.Client con TCP keepalives
 (`TCP_KEEPIDLE=30, KEEPINTVL=10, KEEPCNT=3`) que causaban Connection errors en Linux Mint.
 **Fix:** Se reemplazó por un httpx.Client con `http2=False` sin socket options custom.
 **Backup:** `run_agent.py.bak`
+
+### Patch 2 (v2): Disable connection pool reuse (`run_agent.py`) — 2026-05-26
+**Problema:** Después de una tool call (ej. ddgs tarda 4-9s), la conexión TCP keep-alive
+a OpenRouter quedaba stale. Hermes intentaba reusarla → `APIConnectionError` en el primer
+intento → retry de 2.5s → total 30-45s por respuesta con web search.
+**Fix:** Agregar `limits=httpx.Limits(max_keepalive_connections=0, max_connections=10)`
+al cliente httpx para forzar una conexión TCP nueva en cada llamada API.
+```python
+return _httpx.Client(
+    http2=False,
+    proxy=_proxy,
+    limits=_httpx.Limits(max_keepalive_connections=0, max_connections=10),
+)
+```
+**Resultado:** APIConnectionError eliminado, latencia post-tool-call bajó de 32-44s a 2s.
+**Backup:** `run_agent.py.bak2`
 
 ⚠️ Si Hermes se auto-actualiza, estos patches se pueden pisar. Re-aplicar si el bot
 empieza a dar Connection errors.

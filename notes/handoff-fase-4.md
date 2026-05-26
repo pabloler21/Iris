@@ -1,144 +1,117 @@
-# Handoff: Fase 4 — Migración a Hermes Agent + Discord
+# Handoff: Fase 4 — Rename Iris + Fix APIConnectionError post-ddgs
 
 ## Status
-✅ Completado — 2026-05-25 (migración + fix crítico de Connection error)
+✅ Completado — 2026-05-26
 
-## Cambios respecto a Fase 3
+---
 
-La Fase 3 usaba **OpenClaw** (Node.js). Esa decisión fue revertida:
-- OpenClaw fue deprecado
-- Migrado a **Hermes Agent v0.14.0** (Python) vía `hermes claw migrate`
-- Canal cambiado de Telegram → **Discord** (bot Iris#4138)
-- Modelo cambiado de kimi-k2.6 → **google/gemini-2.0-flash-001** (vía OpenRouter)
+## Cambios de esta sesión
 
-Ver ADR 006 (pendiente de crear) para la justificación.
+### 1. Rename ClawNest → Iris (completado)
 
-## Bug Crítico Resuelto: APIConnectionError en Gateway
+| Artefacto | Cambio |
+|---|---|
+| AGENTS.md / CLAUDE.md | Reescrito: Iris, Hermes/Discord/Gemini Flash, patches documentados |
+| docker-compose.yml | `container_name: clawnest-qdrant` → `iris-qdrant` |
+| README.md | Título `Iris (ex-ClawNest)` → `Iris` |
+| GitHub repo | Renombrado a `pabloler21/Iris` (hecho manualmente en UI) |
+| git remote | `git remote set-url origin git@github.com:pabloler21/Iris.git` |
+| settings.local.json | Path interno actualizado a /iris |
 
-### Síntoma
-Cada mensaje enviado a Discord fallaba con:
+**Pendiente del rename:** renombrar directorio local `~/projects/clawnest` → `~/projects/iris`
+(hacerlo con una sesión de Claude Code cerrada):
+```bash
+mv ~/projects/clawnest ~/projects/iris
+cd ~/projects/iris
 ```
-APIConnectionError: Connection error.
-RemoteProtocolError: Server disconnected without sending a response.
-```
-Los 3 reintentos fallaban. El agente respondía con mensaje de error genérico.
 
-### Root Cause
-OpenRouter droppeaba las conexiones SSE (streaming) cuando el payload de tools
-era grande (~52KB, 33 herramientas definidas para la plataforma Discord).
+### 2. Fix APIConnectionError post-ddgs (Patch v2 en run_agent.py)
 
-- Sin tools: funciona en <2s
-- Con 5 tools: funciona
-- Con 15 tools: funciona con ~75s de latencia
-- Con 33 tools: **FALLA 100% de las veces** en modo streaming
+**Root cause confirmado** (vía logs):
+- ddgs tarda 4-9s en buscar
+- Hermes intenta reusar la conexión TCP keep-alive a OpenRouter
+- OpenRouter cerró esa conexión mientras ddgs buscaba (idle timeout)
+- Resultado: `APIConnectionError` en el primer intento → retry de 2.5s → total 30-45s
 
-El non-streaming con 33 tools funciona (aunque lento, ~15-50s).
-
-### Fix Aplicado
-**Archivo:** `~/.hermes/hermes-agent/agent/conversation_loop.py`
-**Backup:** `~/.hermes/hermes-agent/agent/conversation_loop.py.bak`
-
-Cambiado el bloque `elif not agent._has_stream_consumers()` para que use
-non-streaming cuando no hay stream consumers (el gateway Discord sin streaming
-habilitado no tiene stream consumers).
-
-**Antes:**
+**Fix aplicado** en `~/.hermes/hermes-agent/run_agent.py`:
 ```python
-elif not agent._has_stream_consumers():
-    # No display/TTS consumer. Still prefer streaming for
-    # health checking, but skip for Mock clients in tests
-    from unittest.mock import Mock
-    if isinstance(getattr(agent, "client", None), Mock):
-        _use_streaming = False
+# _build_keepalive_http_client — PATCH v2
+return _httpx.Client(
+    http2=False,
+    proxy=_proxy,
+    limits=_httpx.Limits(max_keepalive_connections=0, max_connections=10),
+)
 ```
+`max_keepalive_connections=0` fuerza una conexión TCP nueva en cada llamada a la API.
+Nunca reutiliza conexiones potencialmente stale.
 
-**Después:**
-```python
-elif not agent._has_stream_consumers():
-    # No display/TTS consumer. Skip streaming to avoid provider
-    # connection issues with large tool payloads (e.g. OpenRouter
-    # drops streaming connections silently when tools payload is
-    # large for certain models). Non-streaming is reliable here.
-    # PATCH: disable streaming when no consumers (was: skip only for Mock).
-    _use_streaming = False
-```
+**Backup:** `~/.hermes/hermes-agent/run_agent.py.bak2`
 
-### Comportamiento Post-Fix
-- Los logs muestran `chat_completion_request` (non-streaming) en vez de
-  `chat_completion_stream_request` (streaming)
-- El primer intento puede fallar ocasionalmente (~50% chance) por inconsistencia
-  de OpenRouter con payloads grandes, pero el reintento siempre funciona
-- El gateway completa correctamente las conversaciones con 1-2 intentos
+**Resultado verificado post-fix:**
+- API call #2 latency: 2.0s (antes: 32-44s con retry)
+- `tcp_force_closed=0` (antes: `1`)
+- Sin `APIConnectionError` ni `attempt 1/3`
+- Tiempo total de respuesta: 22s (antes: 45-70s)
 
-## Estado actual del homelab
+---
+
+## Estado del homelab al final de la sesión
 
 ```
 systemctl --user status hermes-gateway → active (running), enabled
-Linger=yes (sobrevive reinicios sin login)
-
 Hermes v0.14.0
 Modelo: google/gemini-2.0-flash-001
-Provider: openrouter
-Bot Discord: Iris#4138
+Provider: OpenRouter
+Bot Discord: Iris#4138 — conectada y respondiendo
 Config: ~/.hermes/config.yaml
-Logs: ~/.hermes/logs/agent.log
+
+Patches activos en el homelab (no en repo):
+  run_agent.py        — PATCH v2: http2=False + max_keepalive_connections=0
+  conversation_loop.py — PATCH: non-streaming forzado (sin cambios esta sesión)
 ```
 
-## Archivos creados/modificados
+---
 
-### En el repo
-- `notes/handoff-fase-4.md` — este archivo
+## Issues conocidos / deuda técnica (post Fase 4)
 
-### Solo en el homelab (no commitear)
-- `~/.hermes/.env` — API keys (OPENROUTER_API_KEY, DISCORD_TOKEN, etc.)
-- `~/.hermes/config.yaml` — configuración de Hermes
-- `~/.hermes/hermes-agent/agent/conversation_loop.py` — PATCHEADO
-- `~/.hermes/hermes-agent/agent/conversation_loop.py.bak` — backup pre-patch
-- `~/.hermes/hermes-agent/run_agent.py.bak` — backup original run_agent.py
-- `~/.hermes/hermes-agent/run_agent.py` — tiene patches de HTTP/2 (http2=False)
+1. **Directorio local sin renombrar**: `~/projects/clawnest` → `~/projects/iris`
+   Hacerlo cuando no haya sesión de Claude Code activa.
 
-## Issues conocidos / deuda técnica
+2. **Latencia ~22s** con web search — normal dado que ddgs tarda ~8s + OpenRouter ~2s + overhead.
+   Mejorable en fases futuras (cambiar a ddgs con backend más rápido, o brave-free si se consigue API key gratis).
 
-1. **Latencia alta**: Las respuestas toman 15-87s con 33 tools y gemini-2.0-flash
-   Causa: OpenRouter es lento para este modelo con payloads grandes.
-   Alternativa: probar `moonshotai/kimi-k2` que puede ser más rápido con tools.
+3. **Patches locales al código de Hermes** — si Hermes se actualiza, se pierden.
+   Considerar reportar como issues upstream o hacer fork del repo.
 
-2. **Primer intento intermitente**: ~50% de las veces el primer attempt falla
-   con RemoteProtocolError (OpenRouter dropea conexión). El retry funciona.
-   Fix potencial: reducir toolset Discord, o cambiar modelo.
+4. **Discord connect timeout al arrancar** — ocurrió una vez (15:39 hoy), el reconnection watcher lo resolvió solo.
+   No requiere acción.
 
-3. **Patch en archivo fuera de repo**: el fix en conversation_loop.py no está
-   en el repo clawnest (está en ~/.hermes/hermes-agent/). Si Hermes se actualiza,
-   el patch se pierde. Considerar reportar issue upstream o hacer fork.
-
-4. **ADR 006 pendiente**: Documentar la decisión de migrar OpenClaw → Hermes.
-
-5. **README desactualizado**: Aún muestra Fase 2/3 con OpenClaw como activo.
+---
 
 ## Comandos útiles
 
 ```bash
-# Ver estado del gateway
+# Ver estado
 systemctl --user status hermes-gateway
 
-# Ver logs en tiempo real
-journalctl --user -u hermes-gateway -f
-# o bien
+# Logs en tiempo real
 tail -f ~/.hermes/logs/agent.log
 
-# Reiniciar gateway
+# Reiniciar
 systemctl --user restart hermes-gateway
 
-# Ver configuración
-cat ~/.hermes/config.yaml
+# Verificar patch v2 activo
+grep -A3 'PATCH v2' ~/.hermes/hermes-agent/run_agent.py
 
-# Verificar que el patch está aplicado
+# Verificar patch non-streaming activo
 grep -A3 'PATCH: disable streaming' ~/.hermes/hermes-agent/agent/conversation_loop.py
 ```
 
-## Próxima sesión: Fase 5 (Memoria RAG con Qdrant)
+---
 
-- Diseñar skill RAG custom sobre Qdrant (ya en Docker, puerto 6333)
-- Conectar Qdrant al agente como skill de FastAPI
-- Implementar ingesta de documentos y búsqueda semántica
-- Ver task #12: "Diseñar skill RAG custom sobre Qdrant"
+## Próxima sesión: Fase 5 — RAG con Qdrant
+
+- Diseñar skill `search_my_docs` como FastAPI microservice en Docker
+- Conectar Qdrant (ya corriendo en Docker, puerto 6333) al agente via tool
+- Implementar ingesta de documentos (PDFs, markdown) y búsqueda semántica
+- Embeddings: decidir provider (OpenAI text-embedding-3-small via OpenRouter, o local con sentence-transformers)
