@@ -4,11 +4,13 @@ Cubre plataformas sin RSS (DeepLearning.AI, edX, Udemy, etc.) mediante
 búsquedas web dirigidas. Los resultados se combinan con los de RSS en main.py
 y se deduplicán por URL antes de devolver al cliente.
 
-Estrategia de búsqueda:
-  - 4 queries dirigidas a plataformas/compañías clave
-  - timelimit='m' → solo resultados del último mes (filtro de DDG, no 100% exacto)
-  - Keyword filter en título para confirmar que es realmente un curso/cert
-  - asyncio.to_thread() porque duckduckgo-search es síncrono
+Notas de implementación:
+  - backend='html': scraping del HTML de DDG (no API). Más permisivo en rate limit
+    cuando se corre desde un server/container que desde un browser.
+  - Sin timelimit: la API con timelimit usa un endpoint diferente más restrictivo.
+    El año en la query ("2026") actúa como filtro semántico.
+  - 2 queries máx + sleep entre ellas: minimiza riesgo de rate limit.
+  - asyncio.to_thread() porque duckduckgo-search es síncrono.
 """
 
 from __future__ import annotations
@@ -16,6 +18,7 @@ from __future__ import annotations
 import asyncio
 import logging
 import re
+import time
 from datetime import datetime, timezone
 
 from duckduckgo_search import DDGS
@@ -24,16 +27,14 @@ from models.schemas import CourseEntry
 
 logger = logging.getLogger(__name__)
 
-# Queries diseñadas para encontrar anuncios de cursos recientes.
-# Cada query apunta a una fuente/segmento diferente para maximizar cobertura.
+# Solo 2 queries para minimizar rate limiting desde Docker.
+# El año "2026" filtra semánticamente resultados recientes sin usar timelimit API.
 WEB_COURSE_QUERIES = [
-    "deeplearning.ai new course 2026",
-    "new AI certification launch 2026",
-    "new machine learning course announcement 2026",
-    "NVIDIA DLI new certification 2026",
+    "deeplearning.ai new AI course 2026",
+    "new AI certification course launch 2026",
 ]
 
-MAX_RESULTS_PER_QUERY = 4
+MAX_RESULTS_PER_QUERY = 5
 
 # Mismo patrón de keywords con word boundaries que courses.py
 _COURSE_PATTERN = re.compile(
@@ -87,18 +88,23 @@ def _sync_search() -> list[CourseEntry]:
     """Ejecuta las búsquedas DDG de forma síncrona.
 
     Llamada via asyncio.to_thread() — no bloquea el event loop.
+    Usa backend='html' para evitar rate limiting en Docker (la API es más estricta).
     """
     seen_urls: set[str] = set()
     courses: list[CourseEntry] = []
 
     try:
         with DDGS() as ddgs:
-            for query in WEB_COURSE_QUERIES:
+            for i, query in enumerate(WEB_COURSE_QUERIES):
+                # Pausa entre queries para evitar rate limiting
+                if i > 0:
+                    time.sleep(2)
+
                 try:
                     results = ddgs.text(
                         query,
                         max_results=MAX_RESULTS_PER_QUERY,
-                        timelimit="m",  # último mes
+                        backend="html",   # HTML scraping, más permisivo que API
                     )
                     for r in results:
                         url = r.get("href", "")
