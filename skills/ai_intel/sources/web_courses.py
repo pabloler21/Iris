@@ -1,16 +1,13 @@
-"""Fuente: DuckDuckGo web search — cursos y certificaciones de AI recientes.
+"""Fuente: DuckDuckGo Lite — cursos y certificaciones de AI recientes.
 
-Cubre plataformas sin RSS (DeepLearning.AI, edX, Udemy, etc.) mediante
-búsquedas web dirigidas. Los resultados se combinan con los de RSS en main.py
-y se deduplicán por URL antes de devolver al cliente.
+Usa el endpoint `https://lite.duckduckgo.com/lite/` con httpx directamente,
+sin depender de la librería duckduckgo-search que requiere curl-cffi con
+perfiles de browser válidos (no disponibles en Docker slim).
 
-Notas de implementación:
-  - backend='html': scraping del HTML de DDG (no API). Más permisivo en rate limit
-    cuando se corre desde un server/container que desde un browser.
-  - Sin timelimit: la API con timelimit usa un endpoint diferente más restrictivo.
-    El año en la query ("2026") actúa como filtro semántico.
-  - 2 queries máx + sleep entre ellas: minimiza riesgo de rate limit.
-  - asyncio.to_thread() porque duckduckgo-search es síncrono.
+DDG Lite es un endpoint de texto plano sin JS, no rate-limita de la misma
+forma que los otros backends.
+
+Cubre plataformas sin RSS: DeepLearning.AI, edX, Udemy, etc.
 """
 
 from __future__ import annotations
@@ -18,17 +15,18 @@ from __future__ import annotations
 import asyncio
 import logging
 import re
-import time
 from datetime import datetime, timezone
+from html.parser import HTMLParser
 
-from duckduckgo_search import DDGS
+import httpx
 
 from models.schemas import CourseEntry
 
 logger = logging.getLogger(__name__)
 
-# Solo 2 queries para minimizar rate limiting desde Docker.
-# El año "2026" filtra semánticamente resultados recientes sin usar timelimit API.
+DDG_LITE_URL = "https://lite.duckduckgo.com/lite/"
+
+# Queries: pocas, específicas, con año para filtrar semánticamente
 WEB_COURSE_QUERIES = [
     "deeplearning.ai new AI course 2026",
     "new AI certification course launch 2026",
@@ -36,7 +34,6 @@ WEB_COURSE_QUERIES = [
 
 MAX_RESULTS_PER_QUERY = 5
 
-# Mismo patrón de keywords con word boundaries que courses.py
 _COURSE_PATTERN = re.compile(
     r"\b(course|certification|certificate|certif|workshop|bootcamp|"
     r"nanodegree|specialization|mooc|credential|learning path|enroll|"
@@ -49,7 +46,6 @@ _FREE_PATTERN = re.compile(
     re.IGNORECASE,
 )
 
-# Mapa de dominio → nombre del provider para el output
 _DOMAIN_PROVIDER = {
     "deeplearning.ai":  "DeepLearning.AI",
     "coursera.org":     "Coursera",
@@ -61,97 +57,129 @@ _DOMAIN_PROVIDER = {
     "huggingface.co":   "HuggingFace",
     "aws.amazon.com":   "AWS",
     "microsoft.com":    "Microsoft",
-    "google.com":       "Google",
 }
 
 
 def _extract_provider(url: str) -> str:
-    """Extrae el nombre del provider a partir del dominio de la URL."""
     for domain, name in _DOMAIN_PROVIDER.items():
         if domain in url:
             return name
-    # Fallback: segundo nivel del dominio (ej: "openai.com" → "openai")
     try:
-        host = url.split("/")[2]  # "https://X.Y.Z/path" → "X.Y.Z"
+        host = url.split("/")[2]
         parts = host.split(".")
         return parts[-2].capitalize() if len(parts) >= 2 else host
     except Exception:
         return "Web"
 
 
-def _is_course_title(title: str) -> bool:
-    """True si el título del resultado menciona explícitamente un curso/cert."""
-    return bool(_COURSE_PATTERN.search(title))
+class _DDGLiteParser(HTMLParser):
+    """Parser minimal para extraer resultados de DDG Lite."""
+
+    def __init__(self) -> None:
+        super().__init__()
+        self.results: list[dict] = []
+        self._in_result_link = False
+        self._current_href = ""
+        self._current_title = ""
+        self._in_snippet = False
+        self._current_snippet = ""
+        self._td_class = ""
+
+    def handle_starttag(self, tag: str, attrs: list) -> None:
+        attr_dict = dict(attrs)
+        if tag == "a" and "uddg" in attr_dict.get("href", ""):
+            self._in_result_link = True
+            self._current_href = attr_dict.get("href", "")
+            self._current_title = ""
+        elif tag == "td":
+            self._td_class = attr_dict.get("class", "")
+            if "result-snippet" in self._td_class:
+                self._in_snippet = True
+                self._current_snippet = ""
+
+    def handle_endtag(self, tag: str) -> None:
+        if tag == "a" and self._in_result_link:
+            self._in_result_link = False
+        elif tag == "td" and self._in_snippet:
+            self._in_snippet = False
+            if self._current_href and self._current_title:
+                self.results.append({
+                    "href": self._current_href,
+                    "title": self._current_title.strip(),
+                    "body": self._current_snippet.strip(),
+                })
+
+    def handle_data(self, data: str) -> None:
+        if self._in_result_link:
+            self._current_title += data
+        elif self._in_snippet:
+            self._current_snippet += data
 
 
-def _sync_search() -> list[CourseEntry]:
-    """Ejecuta las búsquedas DDG de forma síncrona.
+async def _search_ddg_lite(query: str) -> list[dict]:
+    """Llama a DDG Lite con httpx y parsea los resultados HTML."""
+    try:
+        async with httpx.AsyncClient(
+            timeout=15.0,
+            follow_redirects=True,
+            headers={
+                "User-Agent": (
+                    "Mozilla/5.0 (X11; Linux x86_64; rv:125.0) "
+                    "Gecko/20100101 Firefox/125.0"
+                ),
+                "Accept": "text/html,application/xhtml+xml",
+                "Accept-Language": "en-US,en;q=0.9",
+            },
+        ) as client:
+            response = await client.post(
+                DDG_LITE_URL,
+                data={"q": query, "kl": "en-us"},
+            )
+        response.raise_for_status()
 
-    Llamada via asyncio.to_thread() — no bloquea el event loop.
-    Usa backend='html' para evitar rate limiting en Docker (la API es más estricta).
+        parser = _DDGLiteParser()
+        parser.feed(response.text)
+        return parser.results[:MAX_RESULTS_PER_QUERY]
+
+    except Exception as e:
+        logger.warning("DDG Lite query '%s' falló: %s", query, e)
+        return []
+
+
+async def fetch_web_courses() -> tuple[list[CourseEntry], str | None]:
+    """Busca cursos nuevos de AI en DuckDuckGo Lite.
+
+    Cubre plataformas sin RSS: DeepLearning.AI, Udemy, edX, etc.
+    Retorna (lista de CourseEntry, error_string | None).
     """
     seen_urls: set[str] = set()
     courses: list[CourseEntry] = []
 
-    try:
-        with DDGS() as ddgs:
-            for i, query in enumerate(WEB_COURSE_QUERIES):
-                # Pausa entre queries para evitar rate limiting
-                if i > 0:
-                    time.sleep(2)
+    for query in WEB_COURSE_QUERIES:
+        results = await _search_ddg_lite(query)
+        for r in results:
+            url = r.get("href", "")
+            title = r.get("title", "").strip()
+            body = r.get("body", "")
 
-                try:
-                    results = ddgs.text(
-                        query,
-                        max_results=MAX_RESULTS_PER_QUERY,
-                        backend="html",   # HTML scraping, más permisivo que API
-                    )
-                    for r in results:
-                        url = r.get("href", "")
-                        title = r.get("title", "").strip()
-                        body = r.get("body", "")
+            if url in seen_urls:
+                continue
+            seen_urls.add(url)
 
-                        # Deduplicar por URL
-                        if url in seen_urls:
-                            continue
-                        seen_urls.add(url)
+            if not _COURSE_PATTERN.search(title):
+                continue
 
-                        # Filtrar: solo si el título tiene keyword educativo
-                        if not _is_course_title(title):
-                            continue
+            provider = _extract_provider(url)
+            is_free = bool(_FREE_PATTERN.search(title + " " + body[:200]))
 
-                        provider = _extract_provider(url)
-                        is_free = bool(_FREE_PATTERN.search(title + " " + body[:200]))
+            courses.append(CourseEntry(
+                title=title,
+                provider=f"{provider} (web)",
+                url=url,
+                published=datetime.now(timezone.utc).strftime("%Y-%m-%d"),
+                summary=body[:200] if body else "",
+                is_free=is_free,
+            ))
 
-                        courses.append(CourseEntry(
-                            title=title,
-                            provider=f"{provider} (web)",
-                            url=url,
-                            published=datetime.now(timezone.utc).strftime("%Y-%m-%d"),
-                            summary=body[:200] if body else "",
-                            is_free=is_free,
-                        ))
-
-                except Exception as e:
-                    logger.warning("DDG query '%s' falló: %s", query, e)
-                    continue
-
-    except Exception as e:
-        logger.error("DDG web courses init error: %s", e)
-
-    logger.info("Web courses (DDG): %d resultados", len(courses))
-    return courses
-
-
-async def fetch_web_courses() -> tuple[list[CourseEntry], str | None]:
-    """Busca cursos nuevos de AI en la web via DuckDuckGo.
-
-    Cubre plataformas sin RSS: DeepLearning.AI, Udemy, edX, etc.
-    Devuelve (lista de CourseEntry, error_string | None).
-    """
-    try:
-        courses = await asyncio.to_thread(_sync_search)
-        return courses, None
-    except Exception as e:
-        logger.error("fetch_web_courses falló: %s", e)
-        return [], f"Web search: {e}"
+    logger.info("Web courses (DDG Lite): %d resultados", len(courses))
+    return courses, None
