@@ -1,32 +1,33 @@
-# ClawNest
+# Iris
 
-Personal AI assistant running 24/7 on Linux homelab, accessible via Telegram.
+Personal AI assistant running 24/7 on Linux homelab, accessible via Discord.
 Portfolio piece for AI Engineer Jr job search by Pablo (Buenos Aires).
 
 ## Stack
-- Runtime: Python 3.11 (services), Node.js 20+ (OpenClaw)
-- LLM: Kimi K2 via OpenRouter (model: moonshotai/kimi-k2)
-- Agent framework: OpenClaw (hackable install method)
-- Memory: Qdrant via Docker
+- Runtime: Python 3.11
+- LLM: Gemini 2.0 Flash via OpenRouter (model: google/gemini-2.0-flash-001)
+- Agent framework: Hermes Agent 0.14.0 (Nous Research)
+- Memory: Qdrant via Docker (listo para RAG en Fase 5)
 - API services: FastAPI + Pydantic v2
 - Reverse proxy: Nginx in Docker
-- Network: Tailscale + Funnel
+- Network: Tailscale + SSH (ed25519, no password)
 - OS: Linux Mint (homelab), Windows + WSL2 (dev)
 
 ## Build & Run
 ```bash
-# Start all services on homelab
+# Hermes corre como servicio systemd de usuario (NO en Docker)
+systemctl --user status hermes-gateway
+systemctl --user restart hermes-gateway
+journalctl --user -u hermes-gateway -f
+
+# Logs del agente
+tail -f ~/.hermes/logs/agent.log
+tail -f ~/.hermes/logs/errors.log
+
+# Docker (Qdrant y otros servicios)
 docker compose up -d
-
-# Check status
 docker compose ps
-
-# View logs
 docker compose logs -f [service_name]
-
-# OpenClaw runs as systemd service (NOT in Docker)
-sudo systemctl status clawnest
-journalctl -u clawnest -f
 ```
 
 ## Code conventions
@@ -39,7 +40,7 @@ journalctl -u clawnest -f
 ## Architecture rules
 - No LLM inference locally (use OpenRouter)
 - Custom skills as separate FastAPI services in Docker
-- OpenClaw runs on host, NOT in Docker (needs system access)
+- Hermes Agent runs on host, NOT in Docker (needs system access)
 - All secrets in .env (never commit, gitignored)
 - One service per docker-compose service
 
@@ -82,10 +83,15 @@ This project is developed with Claude Code. To keep context coherent across sess
 
 ## Key directories
 - `backend/src/` — Python services source
-- `skills/` — Custom OpenClaw skills
+- `skills/` — Custom Hermes skills (FastAPI microservices)
 - `notes/` — Handoff notes between sessions (READ ON SESSION START)
 - `decisions/` — Architecture Decision Records (ADRs)
 - `nginx/` — Reverse proxy config
+
+## Critical patches (homelab only, not in repo)
+- `~/.hermes/hermes-agent/agent/conversation_loop.py` — forces non-streaming (avoids OpenRouter SSE drops)
+- `~/.hermes/hermes-agent/run_agent.py` — http2=False, no custom TCP keepalives
+- If Hermes auto-updates, re-apply patches or bot will get Connection errors. See ADR 006.
 
 ## When in doubt
 - Read latest handoff note in `notes/`

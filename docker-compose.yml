@@ -1,7 +1,7 @@
 services:
   qdrant:
     image: qdrant/qdrant:latest
-    container_name: clawnest-qdrant
+    container_name: iris-qdrant
     ports:
       - "6333:6333"   # REST API + dashboard web
       - "6334:6334"   # gRPC (para clients de alta performance)
