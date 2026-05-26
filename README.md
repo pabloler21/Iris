@@ -4,7 +4,7 @@ Personal AI assistant running 24/7 on Linux homelab, accessible via Discord.
 Portfolio piece for AI Engineer Jr — Pablo, Buenos Aires.
 
 ## Status
-Fase 5 completada — RAG operativo: Iris indexa y busca en knowledge base personal vía Qdrant.
+Fase 6 completada — ai_intel skill operativa: modelos, repos GitHub, noticias y cursos de AI.
 
 | Fase | Descripción | Estado |
 |------|-------------|--------|
@@ -15,8 +15,8 @@ Fase 5 completada — RAG operativo: Iris indexa y busca en knowledge base perso
 | 3.5 | Migración a Hermes + Discord + Gemini Flash | ✅ Completa |
 | 4 | Pulido: rename → Iris, fix APIConnectionError post-ddgs | ✅ Completa |
 | 5 | RAG con Qdrant (search_my_docs + ingest_doc) | ✅ Completa |
-| 6 | Skills hub: arxiv, blogwatcher, github | ⏳ Pendiente |
-| 7 | Polish + deploy final | ⏳ Pendiente |
+| 6 | ai_intel: tracker de novedades AI (modelos, repos, noticias, cursos) | ✅ Completa |
+| 7 | Por definir | ⏳ Pendiente |
 
 ## Stack activo en el homelab
 
@@ -24,7 +24,9 @@ Fase 5 completada — RAG operativo: Iris indexa y busca en knowledge base perso
 - **DeepSeek V4 Flash** (deepseek/deepseek-v4-flash) — LLM via OpenRouter
 - **Discord** — canal de mensajería (bot: Iris#4138)
 - **DuckDuckGo (ddgs)** — web search sin API key
-- **Qdrant 1.18.1** — corriendo en Docker, puerto 6333 (listo para RAG en Fase 5)
+- **Qdrant 1.18.1** — corriendo en Docker, puerto 6333
+- **ai_intel** — Docker, puerto 8002 — tracker de novedades AI (modelos, repos, noticias, cursos)
+- **search_my_docs** — Docker, puerto 8001 — RAG sobre knowledge base personal
 - **Tailscale** — red privada para acceso remoto seguro
 - **SSH con llaves ed25519** — sin password auth
 
