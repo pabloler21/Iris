@@ -1,4 +1,8 @@
-"""Fuente: HuggingFace API — modelos nuevos/trending (sin API key)."""
+"""Fuente: HuggingFace API — modelos nuevos de organizaciones conocidas (sin API key).
+
+Filtra por organizaciones/autores con trayectoria en modelos de lenguaje para
+evitar noise de modelos privados o de baja calidad de la comunidad general.
+"""
 
 import logging
 from datetime import datetime, timezone, timedelta
@@ -11,14 +15,21 @@ logger = logging.getLogger(__name__)
 
 HF_MODELS_URL = "https://huggingface.co/api/models"
 
+# Organizaciones de referencia en AI — sus modelos siempre son relevantes
+KNOWN_ORGS = {
+    "google", "meta-llama", "mistralai", "Qwen", "deepseek-ai",
+    "microsoft", "cohere", "ai21-labs", "allenai", "EleutherAI",
+    "tiiuae", "bigscience", "stabilityai", "openai", "anthropic",
+    "01-ai", "internlm", "baichuan-inc", "THUDM", "NousResearch",
+}
 
-async def fetch_new_models(days: int = 7, limit: int = 10) -> tuple[list[ModelEntry], str | None]:
-    """Devuelve modelos nuevos en HuggingFace en los últimos `days` días.
 
-    Filtra por modelos de text-generation (LLMs) con más downloads recientes.
+async def fetch_new_models(days: int = 7, limit: int = 8) -> tuple[list[ModelEntry], str | None]:
+    """Devuelve modelos nuevos en HuggingFace de organizaciones conocidas.
+
+    Solo incluye modelos de texto generativo (text-generation) de orgs reconocidas,
+    para evitar el ruido de miles de fine-tunes anónimos que se publican diariamente.
     """
-    cutoff = (datetime.now(timezone.utc) - timedelta(days=days)).strftime("%Y-%m-%dT%H:%M:%SZ")
-
     try:
         async with httpx.AsyncClient(timeout=20.0) as client:
             response = await client.get(
@@ -27,7 +38,7 @@ async def fetch_new_models(days: int = 7, limit: int = 10) -> tuple[list[ModelEn
                     "filter": "text-generation",
                     "sort": "createdAt",
                     "direction": -1,
-                    "limit": limit * 3,  # pedimos más para poder filtrar por fecha
+                    "limit": 100,  # traemos más para poder filtrar por org
                 },
             )
         response.raise_for_status()
@@ -47,10 +58,16 @@ async def fetch_new_models(days: int = 7, limit: int = 10) -> tuple[list[ModelEn
         except ValueError:
             continue
         if created_dt < cutoff_dt:
-            continue
+            break  # lista ordenada por fecha → podemos parar
 
         model_id = m.get("modelId") or m.get("id", "")
-        # HuggingFace no da pricing — dejamos en 0
+        # Extraer organización del model_id (ej: "google/gemma-3" → "google")
+        org = model_id.split("/")[0] if "/" in model_id else ""
+
+        # Solo incluir orgs conocidas
+        if org not in KNOWN_ORGS:
+            continue
+
         models.append(ModelEntry(
             name=model_id,
             provider="huggingface",
@@ -63,5 +80,5 @@ async def fetch_new_models(days: int = 7, limit: int = 10) -> tuple[list[ModelEn
         if len(models) >= limit:
             break
 
-    logger.info("HuggingFace: %d modelos nuevos en los últimos %d días", len(models), days)
+    logger.info("HuggingFace: %d modelos nuevos de orgs conocidas en %d días", len(models), days)
     return models, None
