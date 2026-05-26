@@ -60,7 +60,7 @@ Nunca reutiliza conexiones potencialmente stale.
 ```
 systemctl --user status hermes-gateway → active (running), enabled
 Hermes v0.14.0
-Modelo: google/gemini-2.0-flash-001
+Modelo: deepseek/deepseek-v4-flash  ← cambiado de gemini-2.0-flash-001 (2026-05-26)
 Provider: OpenRouter
 Bot Discord: Iris#4138 — conectada y respondiendo
 Config: ~/.hermes/config.yaml

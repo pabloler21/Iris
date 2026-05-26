@@ -5,7 +5,7 @@ Portfolio piece for AI Engineer Jr job search by Pablo (Buenos Aires).
 
 ## Stack
 - Runtime: Python 3.11
-- LLM: Gemini 2.0 Flash via OpenRouter (model: google/gemini-2.0-flash-001)
+- LLM: DeepSeek V4 Flash via OpenRouter (model: deepseek/deepseek-v4-flash)
 - Agent framework: Hermes Agent 0.14.0 (Nous Research)
 - Memory: Qdrant via Docker (listo para RAG en Fase 5)
 - API services: FastAPI + Pydantic v2
