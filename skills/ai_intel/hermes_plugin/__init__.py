@@ -115,9 +115,10 @@ def _fmt_courses(courses: list[dict], query_is_courses: bool = False) -> list[st
     if not courses:
         if query_is_courses:
             return [
-                "📚 **Cursos y certificaciones** — sin anuncios recientes en este período.",
+                "📚 **Cursos y certificaciones** — RESULTADO: 0 cursos nuevos encontrados.",
                 "  Fuentes chequeadas: NVIDIA DLI, Coursera, fast.ai, Google Dev, AWS ML Blog.",
-                "  Nota: los cursos no se anuncian todas las semanas — probá con `days=30` o más.",
+                "  INSTRUCCIÓN PARA EL AGENTE: No agregues cursos de tu conocimiento propio.",
+                "  La ausencia de resultados significa que no hubo anuncios esta semana. Informá eso.",
             ]
         return []
 
