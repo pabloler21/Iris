@@ -100,14 +100,15 @@ def _fmt_repos(repos: list[dict]) -> list[str]:
 
 
 def _fmt_news(news: list[dict]) -> list[str]:
-    """Formatea la sección de noticias agrupada por fuente.
+    """Formatea noticias con fecha inline en el título y URL en la misma línea.
 
-    Las fechas y URLs van en líneas propias para que el LLM no las pierda.
+    Formato: • [DD-mmm] Título — Fuente 🔗 URL
+    La fecha va fusa con el título para que el LLM no la pueda omitir al resumir.
     """
     if not news:
         return []
 
-    lines = [f"📰 **Noticias** ({len(news)} artículos)"]
+    lines = [f"📰 **Noticias** ({len(news)} artículos) — presentá fecha y URL de cada una"]
 
     # Agrupar por fuente
     by_source: dict[str, list] = {}
@@ -117,10 +118,20 @@ def _fmt_news(news: list[dict]) -> list[str]:
     for source, items in by_source.items():
         lines.append(f"\n*{source}:*")
         for item in items[:4]:
-            lines.append(f"  📅 {item['published']} — **{item['title']}**")
-            if item.get("summary"):
-                lines.append(f"  {item['summary'][:200]}")
-            lines.append(f"  🔗 {item['url']}")
+            # Fecha en formato corto y pegada al título
+            pub = item["published"]  # YYYY-MM-DD
+            try:
+                from datetime import datetime
+                dt = datetime.strptime(pub, "%Y-%m-%d")
+                short_date = dt.strftime("%d-%b").lower()  # ej: "26-may"
+            except Exception:
+                short_date = pub
+
+            url = item.get("url", "")
+            url_str = f" 🔗 {url}" if url else ""
+            lines.append(
+                f"  • [{short_date}] {item['title']}{url_str}"
+            )
 
     return lines
 
