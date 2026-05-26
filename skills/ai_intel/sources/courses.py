@@ -183,8 +183,11 @@ async def fetch_new_courses(
                     summary_raw = _clean_html(raw)
                     break
 
-            # Filtro principal con word boundaries — descarta posts que no sean cursos/certs
-            if not _is_course_related(title, summary_raw):
+            # Filtro: solo checar el TÍTULO (no el summary).
+            # Razón: keywords como "specialization" aparecen en summaries de posts técnicos
+            # sin relación con cursos (ej: "radiologist specialization"), pero en títulos
+            # de cursos siempre están de forma explícita ("New Course", "Workshop:", etc.).
+            if not _is_course_related(title, ""):
                 continue
 
             date_str = published.strftime("%Y-%m-%d") if published else "fecha desconocida"
