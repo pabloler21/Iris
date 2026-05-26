@@ -134,16 +134,16 @@ def register(ctx) -> None:
     """Llamado por el plugin loader de Hermes al arrancar."""
     ctx.register_tool(
         name="search_my_docs",
+        toolset="search-my-docs",
         schema=SEARCH_MY_DOCS_SCHEMA,
         handler=_handle_search_my_docs,
         emoji="🔎",
-        max_result_size_chars=10_000,
     )
     ctx.register_tool(
         name="ingest_doc",
+        toolset="search-my-docs",
         schema=INGEST_DOC_SCHEMA,
         handler=_handle_ingest_doc,
         emoji="📥",
-        max_result_size_chars=2_000,
     )
     logger.info("Plugin search-my-docs: tools search_my_docs + ingest_doc registradas")
