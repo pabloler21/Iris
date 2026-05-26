@@ -22,13 +22,13 @@ from models.schemas import NewsEntry
 logger = logging.getLogger(__name__)
 
 RSS_FEEDS = {
-    "OpenAI":         "https://openai.com/news/rss.xml",
+    "OpenAI":          "https://openai.com/news/rss.xml",
     "Google DeepMind": "https://deepmind.google/blog/rss.xml",
-    "Google AI":      "https://ai.googleblog.com/feeds/posts/default",
-    "Anthropic":      "https://www.anthropic.com/rss.xml",
-    "Meta AI":        "https://ai.meta.com/blog/feed/",
-    "TLDR AI":        "https://actions.tldrnewsletter.com/web-feed?feed=tldrAI",
-    "ArXiv cs.AI":    "https://rss.arxiv.org/rss/cs.AI",
+    "Google AI":       "https://blog.google/technology/ai/rss/",
+    "Anthropic":       "https://raw.githubusercontent.com/CorjanBos/ai-rss-feed/main/anthropic-rss-feed.xml",
+    "TLDR AI":         "https://tldr.tech/api/rss/ai",
+    "ArXiv cs.AI":     "https://rss.arxiv.org/rss/cs.AI",
+    "Hacker News AI":  "https://hnrss.org/newest?q=LLM+AI+model&count=15",
 }
 
 

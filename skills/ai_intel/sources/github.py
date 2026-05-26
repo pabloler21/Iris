@@ -22,8 +22,9 @@ async def fetch_trending_repos(days: int = 7, limit: int = 10) -> tuple[list[Rep
     """
     cutoff = (datetime.now(timezone.utc) - timedelta(days=days)).strftime("%Y-%m-%d")
 
-    # Buscar repos creados recientemente con topics de AI, ordenados por estrellas
-    query = f"topic:llm+topic:ai created:>{cutoff}"
+    # Buscar repos creados recientemente con topic llm, ordenados por estrellas
+    # (un solo topic para no hacer el query demasiado restrictivo)
+    query = f"topic:llm created:>{cutoff}"
 
     try:
         async with httpx.AsyncClient(
