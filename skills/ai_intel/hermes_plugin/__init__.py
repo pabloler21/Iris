@@ -20,10 +20,12 @@ AI_INTEL_SCHEMA = {
     "name": "ai_intel",
     "description": (
         "Obtiene novedades del mundo de AI: modelos nuevos en OpenRouter y HuggingFace, "
-        "repositorios nuevos en GitHub con temática AI/LLM, y noticias de "
-        "OpenAI, DeepMind, Mistral, TLDR AI, ArXiv y más. "
+        "repositorios nuevos en GitHub con temática AI/LLM, noticias de "
+        "OpenAI, DeepMind, TLDR AI, ArXiv y más, y cursos/certificaciones nuevos de "
+        "NVIDIA DLI, DeepLearning.AI, Coursera y fast.ai. "
         "Usalo cuando Pablo pregunte qué hay de nuevo en AI, qué modelos salieron, "
-        "qué está trending en GitHub, o qué anunciaron las compañías de AI. "
+        "qué está trending en GitHub, qué anunciaron las compañías de AI, "
+        "o si hay cursos o certificaciones nuevas. "
         "IMPORTANTE: al presentar la respuesta, conservá siempre las fechas y URLs."
     ),
     "parameters": {
@@ -31,13 +33,14 @@ AI_INTEL_SCHEMA = {
         "properties": {
             "type": {
                 "type": "string",
-                "enum": ["all", "models", "repos", "news"],
+                "enum": ["all", "models", "repos", "news", "courses"],
                 "description": (
                     "Qué consultar: "
                     "'all' = todo (default), "
                     "'models' = solo modelos nuevos, "
                     "'repos' = solo repos GitHub, "
-                    "'news' = solo noticias de compañías"
+                    "'news' = solo noticias de compañías, "
+                    "'courses' = solo cursos y certificaciones"
                 ),
                 "default": "all",
             },
@@ -96,6 +99,38 @@ def _fmt_repos(repos: list[dict]) -> list[str]:
             f"    {desc}\n"
             f"    {r['url']}"
         )
+    return lines
+
+
+def _fmt_courses(courses: list[dict]) -> list[str]:
+    """Formatea la sección de cursos y certificaciones.
+
+    Formato: • [DD-mmm] Título (🆓 si es gratis) — Provider 🔗 URL
+    Misma estrategia que _fmt_news: fecha inline para que el LLM no la pierda.
+    """
+    if not courses:
+        return []
+
+    lines = [f"📚 **Cursos y certificaciones** ({len(courses)} nuevos)"]
+
+    for item in courses:
+        pub = item.get("published", "")
+        try:
+            from datetime import datetime
+            dt = datetime.strptime(pub, "%Y-%m-%d")
+            short_date = dt.strftime("%d-%b").lower()
+        except Exception:
+            short_date = pub
+
+        free_tag = " 🆓" if item.get("is_free") else ""
+        url = item.get("url", "")
+        url_str = f" 🔗 {url}" if url else ""
+        provider = item.get("provider", "")
+
+        lines.append(
+            f"  • [{short_date}] {item['title']}{free_tag} — *{provider}*{url_str}"
+        )
+
     return lines
 
 
@@ -158,6 +193,11 @@ def _format_response(data: dict, query_type: str) -> str:
         if s:
             sections.append(s)
 
+    if query_type in ("all", "courses"):
+        s = _fmt_courses(data.get("courses", []))
+        if s:
+            sections.append(s)
+
     if not sections:
         return f"No encontré novedades en los últimos {days} días."
 
@@ -178,10 +218,11 @@ def _handle_ai_intel(args: dict, **kwargs) -> str:
     days = args.get("days", 7)
 
     endpoint_map = {
-        "all":    "/summary",
-        "models": "/models",
-        "repos":  "/repos",
-        "news":   "/news",
+        "all":     "/summary",
+        "models":  "/models",
+        "repos":   "/repos",
+        "news":    "/news",
+        "courses": "/courses",
     }
     endpoint = endpoint_map.get(query_type, "/summary")
 
