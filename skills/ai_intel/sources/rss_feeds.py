@@ -31,7 +31,7 @@ RSS_FEEDS = {
     "OpenAI":          "https://openai.com/news/rss.xml",
     "Google DeepMind": "https://deepmind.google/blog/rss.xml",
     "Google AI":       "https://blog.google/technology/ai/rss/",
-    "Mistral AI":      "https://mistral.ai/fr/rss/news.xml",
+    "HuggingFace Blog": "https://huggingface.co/blog/feed.xml",
     "TLDR AI":         "https://tldr.tech/api/rss/ai",
     "ArXiv cs.AI":     "https://rss.arxiv.org/rss/cs.AI",
     "Hacker News AI":  "https://hnrss.org/newest?q=LLM+OR+%22language+model%22+OR+%22AI+model%22&count=20",

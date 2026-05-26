@@ -80,11 +80,14 @@ async def fetch_trending_repos(days: int = 7, limit: int = 10) -> tuple[list[Rep
     }
 
     def _is_ai_related(item: dict) -> bool:
-        """Verifica que nombre o descripción contengan keywords de AI."""
+        """Verifica que nombre o descripción contengan keywords de AI.
+
+        Intencional: NO incluimos topics para evitar repos que se auto-tagean
+        con 'llm' sin tener contenido real de AI en nombre o descripción.
+        """
         text = (
             (item.get("full_name") or "") + " " +
-            (item.get("description") or "") +
-            " ".join(item.get("topics", []))
+            (item.get("description") or "")
         ).lower()
         return any(kw in text for kw in AI_KEYWORDS)
 
