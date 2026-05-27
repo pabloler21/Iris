@@ -18,8 +18,12 @@ import httpx
 logger = logging.getLogger(__name__)
 
 OPENROUTER_API_URL = "https://openrouter.ai/api/v1/chat/completions"
-CURATION_MODEL = "moonshotai/kimi-k2.6"
-LLM_TIMEOUT = 40.0   # segundos — si Kimi no responde en 40s, fallback
+
+# Gemini Flash: sin reasoning tokens, muy rápido (~2-5s), ideal para formateo/curaduría.
+# Kimi K2.6 es un reasoning model — gasta >2000 tokens pensando en tareas simples.
+# Para esta tarea (seleccionar + formatear), un instruction-following model es mejor.
+CURATION_MODEL = "google/gemini-2.0-flash-001"
+LLM_TIMEOUT = 30.0   # segundos — Gemini Flash responde en 2-5s normalmente
 
 
 # Perfil de Pablo — qué le importa, cómo priorizar
@@ -161,11 +165,9 @@ async def call_kimi_curator(data: dict, days: int = 7) -> str | None:
             {"role": "system", "content": system_prompt},
             {"role": "user", "content": user_message},
         ],
-        # Kimi K2.6 es un modelo de razonamiento — necesita tokens extras para pensar
-        # antes de producir el texto de respuesta.
-        # Con input reducido (~800 tokens), reasoning usa ~600-800 tokens.
-        # Resto disponible para el digest (~1200 tokens ≈ 1900 chars). OK.
-        "max_tokens": 2500,
+        # Gemini Flash no tiene reasoning overhead — 900 tokens es más que suficiente
+        # para el digest completo (~1900 chars ≈ 600-700 tokens).
+        "max_tokens": 900,
         "temperature": 0.3,   # Baja temperatura = formato más consistente
     }
 
