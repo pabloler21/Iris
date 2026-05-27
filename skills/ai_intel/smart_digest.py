@@ -149,7 +149,9 @@ async def call_kimi_curator(data: dict, days: int = 7) -> str | None:
             {"role": "system", "content": system_prompt},
             {"role": "user", "content": user_message},
         ],
-        "max_tokens": 800,
+        # Kimi K2.6 es un modelo de razonamiento — necesita tokens extra para pensar
+        # antes de producir el texto de respuesta. Con < 1000 tokens, content queda null.
+        "max_tokens": 1600,
         "temperature": 0.3,   # Baja temperatura = formato más consistente
     }
 
@@ -168,7 +170,15 @@ async def call_kimi_curator(data: dict, days: int = 7) -> str | None:
         response.raise_for_status()
         result = response.json()
 
-        text = result["choices"][0]["message"]["content"].strip()
+        message = result["choices"][0]["message"]
+        # Kimi K2.6 separa reasoning del content. Con max_tokens suficiente,
+        # content tiene la respuesta final. Fallback a reasoning solo como debug.
+        text = message.get("content") or ""
+        if not text.strip():
+            # Si content llegó vacío o null (no debería pasar con max_tokens=1600)
+            logger.error("Kimi devolvió content vacío. reasoning len=%d", len(message.get("reasoning") or ""))
+            return None
+        text = text.strip()
 
         # Loguear uso de tokens para monitorear costo
         usage = result.get("usage", {})
