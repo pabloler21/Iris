@@ -81,6 +81,7 @@ def _compact_feed(data: dict, days: int) -> str:
             lang = f" [{r['language']}]" if r.get("language") and r["language"] != "N/A" else ""
             desc = (r.get("description") or "")[:90]
             lines.append(f"- {r['name']} ★{r['stars']:,}{lang} — {desc}")
+            lines.append(f"  URL: {r['url']}")
     else:
         lines.append("\n=== REPOS GITHUB (0) ===\n(ninguno esta semana)")
 
@@ -91,7 +92,9 @@ def _compact_feed(data: dict, days: int) -> str:
         lines.append(f"\n=== NOTICIAS (mostrando {len(news)} de {total_news}) ===")
         for n in news:
             url = n.get("url", "")
-            lines.append(f"- [{n['published']}] {n['title']} — {n['source']} → {url}")
+            lines.append(f"- [{n['published']}] {n['title']} — {n['source']}")
+            if url:
+                lines.append(f"  URL: {url}")
     else:
         lines.append("\n=== NOTICIAS (0) ===\n(ninguna esta semana)")
 
@@ -138,10 +141,10 @@ REGLAS DE FORMATO:
 - Segunda línea: {'━' * 30}
 - Máximo 4 secciones: 🤖 Modelos · ⭐ Repos · 📰 Noticias · 📚 Cursos
 - Por sección: máximo 3 modelos, 3 repos, 5 noticias, 2 cursos
-- Formato por item:
+- Formato por item (copiá la URL exactamente como aparece después de → en el feed):
     · **Nombre/título** — descripción corta
-      → URL_EXACTA_DEL_FEED
-      → por qué importa: una línea práctica para Pablo
+      → https://la-url-exacta-del-feed-sin-modificar.com/ruta
+      → *por qué importa:* una línea práctica para Pablo
 - Si una sección no tiene nada relevante, omitila completamente
 - Texto total: MENOS de 1900 caracteres (límite Discord)
 - Markdown Discord-friendly: **negrita**, emojis moderados
