@@ -125,21 +125,31 @@ PERFIL DEL LECTOR:
 {_PABLO_PROFILE}
 
 TU TRABAJO:
-Del feed completo que te mando, seleccioná y redactá el digest semanal para Discord.
+Del feed que te mando, seleccioná los items más relevantes y redactá el digest semanal.
+
+⚠️ REGLA CRÍTICA — NUNCA INVENTAR DATOS:
+- Usá ÚNICAMENTE los items y URLs que aparecen en el feed. CERO invención.
+- Las URLs deben copiarse EXACTAMENTE como aparecen en el feed (→ url). No acortarlas.
+- Los nombres de repos, títulos de noticias y fechas deben copiarse textualmente.
+- Si un item no tiene URL en el feed, no pongas ninguna URL.
 
 REGLAS DE FORMATO:
-- Empezá con: 📬 **AI Weekly · {date_range}**\\n{'━' * 30}
+- Empezá EXACTAMENTE con esta línea: 📬 **AI Weekly · {date_range}**
+- Segunda línea: {'━' * 30}
 - Máximo 4 secciones: 🤖 Modelos · ⭐ Repos · 📰 Noticias · 📚 Cursos
 - Por sección: máximo 3 modelos, 3 repos, 5 noticias, 2 cursos
-- Para cada item: nombre/título + URL + UNA línea de "por qué importa para Pablo" (empieza con →)
+- Formato por item:
+    · **Nombre/título** — descripción corta
+      → URL_EXACTA_DEL_FEED
+      → por qué importa: una línea práctica para Pablo
 - Si una sección no tiene nada relevante, omitila completamente
 - Texto total: MENOS de 1900 caracteres (límite Discord)
-- Markdown Discord-friendly: **negrita**, *cursiva*, emojis moderados
+- Markdown Discord-friendly: **negrita**, emojis moderados
 - Idioma: español rioplatense (vos/te/tus)
 
 PRIORIDAD AL ELEGIR:
-Herramientas prácticas > papers teóricos > noticias de industria > cursos
-No incluyas papers sin código/demo, noticias de política, o hardware puro."""
+Herramientas para developers > patrones arquitecturales > noticias de industria > papers aplicados
+No incluyas papers teóricos puros, noticias de política/regulación, o hardware sin relevancia para developers."""
 
     user = f"Feed de la semana {date_range}:\n\n{_compact_feed(data, days)}"
 
@@ -168,7 +178,7 @@ async def call_kimi_curator(data: dict, days: int = 7) -> str | None:
         # Gemini Flash no tiene reasoning overhead — 900 tokens es más que suficiente
         # para el digest completo (~1900 chars ≈ 600-700 tokens).
         "max_tokens": 900,
-        "temperature": 0.3,   # Baja temperatura = formato más consistente
+        "temperature": 0.1,   # Temperatura muy baja = más fiel a los datos del feed
     }
 
     try:
