@@ -40,11 +40,21 @@ papers sin implementación, noticias de consumidores finales.
 """.strip()
 
 
+
+# Límites de items que mandamos a Kimi — menos input = menos reasoning tokens gastados
+_MAX_NEWS_FOR_PROMPT = 10
+_MAX_REPOS_FOR_PROMPT = 6
+
+
 def _compact_feed(data: dict, days: int) -> str:
-    """Serializa los datos del feed en formato compacto para el prompt."""
+    """Serializa los datos del feed en formato compacto para el prompt.
+
+    Limitamos los items enviados a Kimi para no disparar demasiados reasoning tokens:
+    Kimi K2.6 puede gastar >4000 chars pensando si el input es muy largo.
+    """
     lines: list[str] = []
 
-    # Modelos
+    # Modelos (todos — suelen ser pocos)
     models = data.get("models", [])
     if models:
         lines.append(f"=== MODELOS NUEVOS ({len(models)}) ===")
@@ -58,28 +68,30 @@ def _compact_feed(data: dict, days: int) -> str:
     else:
         lines.append("=== MODELOS NUEVOS (0) ===\n(ninguno esta semana)")
 
-    # Repos
-    repos = data.get("repos", [])
+    # Repos (top N por stars)
+    repos = data.get("repos", [])[:_MAX_REPOS_FOR_PROMPT]
+    total_repos = len(data.get("repos", []))
     if repos:
-        lines.append(f"\n=== REPOS GITHUB ({len(repos)}) ===")
+        lines.append(f"\n=== REPOS GITHUB (mostrando {len(repos)} de {total_repos}) ===")
         for r in repos:
             lang = f" [{r['language']}]" if r.get("language") and r["language"] != "N/A" else ""
-            desc = (r.get("description") or "")[:100]
+            desc = (r.get("description") or "")[:90]
             lines.append(f"- {r['name']} ★{r['stars']:,}{lang} — {desc}")
     else:
         lines.append("\n=== REPOS GITHUB (0) ===\n(ninguno esta semana)")
 
-    # Noticias
-    news = data.get("news", [])
+    # Noticias (top N más recientes)
+    news = data.get("news", [])[:_MAX_NEWS_FOR_PROMPT]
+    total_news = len(data.get("news", []))
     if news:
-        lines.append(f"\n=== NOTICIAS ({len(news)}) ===")
+        lines.append(f"\n=== NOTICIAS (mostrando {len(news)} de {total_news}) ===")
         for n in news:
             url = n.get("url", "")
             lines.append(f"- [{n['published']}] {n['title']} — {n['source']} → {url}")
     else:
         lines.append("\n=== NOTICIAS (0) ===\n(ninguna esta semana)")
 
-    # Cursos
+    # Cursos (todos — suelen ser pocos o ninguno)
     courses = data.get("courses", [])
     if courses:
         lines.append(f"\n=== CURSOS ({len(courses)}) ===")
@@ -149,9 +161,11 @@ async def call_kimi_curator(data: dict, days: int = 7) -> str | None:
             {"role": "system", "content": system_prompt},
             {"role": "user", "content": user_message},
         ],
-        # Kimi K2.6 es un modelo de razonamiento — necesita tokens extra para pensar
-        # antes de producir el texto de respuesta. Con < 1000 tokens, content queda null.
-        "max_tokens": 1600,
+        # Kimi K2.6 es un modelo de razonamiento — necesita tokens extras para pensar
+        # antes de producir el texto de respuesta.
+        # Con input reducido (~800 tokens), reasoning usa ~600-800 tokens.
+        # Resto disponible para el digest (~1200 tokens ≈ 1900 chars). OK.
+        "max_tokens": 2500,
         "temperature": 0.3,   # Baja temperatura = formato más consistente
     }
 
