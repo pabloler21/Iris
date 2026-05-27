@@ -6,6 +6,7 @@ y deduplicación por repo name. Requiere stars:>2 para filtrar repos vacíos.
 """
 
 import logging
+import re
 from datetime import datetime, timezone, timedelta
 
 import httpx
@@ -79,14 +80,28 @@ async def fetch_trending_repos(days: int = 7, limit: int = 10) -> tuple[list[Rep
         "diffusion", "generative", "fine-tun", "finetun", "multimodal",
     }
 
+    # Prefijos de repos tipo "awesome-*" que se cuelan aunque no sean de AI
+    # Ej: awesome-architecture, awesome-python, awesome-selfhosted
+    _AWESOME_NOISE = re.compile(
+        r"^[^/]*/awesome-(?!ai|llm|generative|chatgpt|gpt|langchain|rag|ml|machine-learning)",
+        re.IGNORECASE,
+    )
+
     def _is_ai_related(item: dict) -> bool:
         """Verifica que nombre o descripción contengan keywords de AI.
 
         Intencional: NO incluimos topics para evitar repos que se auto-tagean
         con 'llm' sin tener contenido real de AI en nombre o descripción.
+        Excluye repos awesome-* no relacionados con AI (ej: awesome-architecture).
         """
+        full_name = item.get("full_name") or ""
+        # Filtrar awesome-* que no son de AI antes de chequear keywords
+        if _AWESOME_NOISE.match(full_name):
+            logger.debug("Repo filtrado (awesome-* no AI): %s", full_name)
+            return False
+
         text = (
-            (item.get("full_name") or "") + " " +
+            full_name + " " +
             (item.get("description") or "")
         ).lower()
         return any(kw in text for kw in AI_KEYWORDS)
