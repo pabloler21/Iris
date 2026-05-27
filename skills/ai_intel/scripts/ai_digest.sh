@@ -9,7 +9,7 @@
 
 set -euo pipefail
 
-ENDPOINT="http://localhost:8002/digest?days=7"
+ENDPOINT="http://localhost:8002/digest-smart?days=7"
 
 # Verificar que el servicio está up
 if ! curl -sf "http://localhost:8002/health" > /dev/null 2>&1; then

@@ -1,18 +1,25 @@
 """Fuente: RSS feeds de blogs de compañías de AI y newsletters.
 
 Feeds incluidos (todos verificados con URL funcional):
-  - OpenAI          (oficial)
-  - Google DeepMind (oficial)
-  - Google AI Blog  (oficial, via blog.google)
-  - Mistral AI      (oficial)
-  - TLDR AI         (newsletter, muy completo)
-  - ArXiv cs.AI     (papers recientes)
-  - Hacker News AI  (posts sobre AI en HN)
+  Compañías:
+  - OpenAI            (oficial)
+  - Google DeepMind   (oficial)
+  - Google AI Blog    (oficial, via blog.google)
+  - HuggingFace Blog  (oficial)
+
+  Newsletters / Blogs editorializados (alta señal):
+  - TLDR AI           (newsletter diario curado, muy completo)
+  - Simon Willison    (blog diario, herramientas AI prácticas para developers)
+  - Interconnects     (Nathan Lambert — análisis mensual de tendencias LLM)
+  - Ahead of AI       (Sebastian Raschka — deep dives en arquitecturas LLM)
 
 Notas:
-  - Anthropic: sin RSS oficial ni community feed estable → excluido
+  - Anthropic: sin RSS oficial → excluido
   - Meta AI: sin RSS funcional → excluido
   - xAI: sin RSS → excluido
+  - The Batch (DL.AI): RSS no funcional (404) → excluido
+  - ArXiv cs.AI: REMOVIDO — demasiado volumen (500 papers/día), mucho ruido académico
+  - Hacker News AI: REMOVIDO — demasiado ruido, falsos positivos frecuentes
 """
 
 import logging
@@ -27,14 +34,43 @@ from models.schemas import NewsEntry
 
 logger = logging.getLogger(__name__)
 
-RSS_FEEDS = {
-    "OpenAI":          "https://openai.com/news/rss.xml",
-    "Google DeepMind": "https://deepmind.google/blog/rss.xml",
-    "Google AI":       "https://blog.google/technology/ai/rss/",
-    "HuggingFace Blog": "https://huggingface.co/blog/feed.xml",
-    "TLDR AI":         "https://tldr.tech/api/rss/ai",
-    "ArXiv cs.AI":     "https://rss.arxiv.org/rss/cs.AI",
-    "Hacker News AI":  "https://hnrss.org/newest?q=LLM+OR+%22language+model%22+OR+%22AI+model%22&count=20",
+# Cada feed tiene url y limit_per_fetch (items max por llamada).
+# Simon Willison publica ~5 posts/día (links cortos + ensayos) → límite 3
+# para no inundar el digest con citas y links triviales.
+# Interconnects y Ahead of AI son mensuales → sin límite práctico (limit=10).
+RSS_FEEDS: dict[str, dict] = {
+    "OpenAI": {
+        "url":   "https://openai.com/news/rss.xml",
+        "limit": 4,
+    },
+    "Google DeepMind": {
+        "url":   "https://deepmind.google/blog/rss.xml",
+        "limit": 4,
+    },
+    "Google AI": {
+        "url":   "https://blog.google/technology/ai/rss/",
+        "limit": 3,
+    },
+    "HuggingFace Blog": {
+        "url":   "https://huggingface.co/blog/feed.xml",
+        "limit": 4,
+    },
+    "TLDR AI": {
+        "url":   "https://tldr.tech/api/rss/ai",
+        "limit": 3,
+    },
+    "Simon Willison": {
+        "url":   "https://simonwillison.net/atom/everything/",
+        "limit": 3,
+    },
+    "Interconnects": {
+        "url":   "https://www.interconnects.ai/feed",
+        "limit": 10,
+    },
+    "Ahead of AI": {
+        "url":   "https://magazine.sebastianraschka.com/feed",
+        "limit": 10,
+    },
 }
 
 
@@ -81,8 +117,10 @@ async def _fetch_feed(name: str, url: str) -> list[feedparser.FeedParserDict]:
         return []
 
 
-async def fetch_news(days: int = 7, limit_per_feed: int = 4) -> tuple[list[NewsEntry], list[str]]:
+async def fetch_news(days: int = 7) -> tuple[list[NewsEntry], list[str]]:
     """Lee todos los feeds y devuelve noticias de los últimos `days` días.
+
+    Cada feed tiene su propio límite de items definido en RSS_FEEDS.
 
     Returns:
         (lista de noticias ordenadas por fecha DESC, lista de feeds con error)
@@ -91,7 +129,10 @@ async def fetch_news(days: int = 7, limit_per_feed: int = 4) -> tuple[list[NewsE
     all_news: list[NewsEntry] = []
     errors: list[str] = []
 
-    for source_name, url in RSS_FEEDS.items():
+    for source_name, config in RSS_FEEDS.items():
+        url = config["url"]
+        limit = config.get("limit", 4)
+
         entries = await _fetch_feed(source_name, url)
         if not entries:
             errors.append(f"{source_name}: sin respuesta")
@@ -126,7 +167,7 @@ async def fetch_news(days: int = 7, limit_per_feed: int = 4) -> tuple[list[NewsE
                 summary=summary,
             ))
             count += 1
-            if count >= limit_per_feed:
+            if count >= limit:
                 break
 
         logger.info("RSS '%s': %d entradas recientes", source_name, count)

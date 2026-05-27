@@ -23,6 +23,7 @@ from fastapi import FastAPI, Query
 
 from models.schemas import IntelResponse, DigestResponse
 from digest import format_discord_digest
+from smart_digest import call_kimi_curator
 from sources.openrouter import fetch_new_models as or_models
 from sources.huggingface import fetch_new_models as hf_models
 from sources.github import fetch_trending_repos
@@ -34,7 +35,7 @@ logger = logging.getLogger(__name__)
 app = FastAPI(
     title="ai_intel",
     description="Skill RAG: novedades de AI — modelos, repos, noticias, cursos.",
-    version="1.3.0",
+    version="2.0.0",
 )
 
 
@@ -164,5 +165,68 @@ async def get_digest(days: int = Query(default=7, ge=1, le=14)) -> DigestRespons
             "repos": len(repos),
             "news": len(news),
             "courses": len(courses),
+        },
+    )
+
+
+@app.get("/digest-smart", response_model=DigestResponse)
+async def get_digest_smart(days: int = Query(default=7, ge=1, le=14)) -> DigestResponse:
+    """Digest curado por Kimi K2.6 — newsletter personalizado para Pablo.
+
+    Kimi lee todo el feed de la semana y selecciona los items más relevantes
+    para un AI Engineer Jr, agregando una línea de 'por qué importa' por item.
+
+    Fallback automático a /digest si Kimi no responde (timeout o error).
+    """
+    # Fetch en paralelo (igual que /digest)
+    (
+        (or_list, or_err),
+        (hf_list, hf_err),
+        (repos, repo_err),
+        (news, feed_errs),
+        (courses, course_errs),
+    ) = await asyncio.gather(
+        or_models(days),
+        hf_models(days),
+        fetch_trending_repos(days),
+        fetch_news(days),
+        fetch_new_courses(days),
+    )
+    errors = [e for e in [or_err, hf_err, repo_err] if e] + feed_errs + course_errs
+    models = or_list + hf_list
+
+    data = {
+        "models": [m.model_dump() for m in models],
+        "repos": [r.model_dump() for r in repos],
+        "news": [n.model_dump() for n in news],
+        "courses": [c.model_dump() for c in courses],
+        "errors": errors,
+    }
+
+    logger.info(
+        "Digest-smart [%d días]: %d modelos, %d repos, %d noticias, %d cursos",
+        days, len(models), len(repos), len(news), len(courses),
+    )
+
+    # Llamar a Kimi para curaduría
+    curated_text = await call_kimi_curator(data, days=days)
+
+    if curated_text:
+        # Kimi respondió — usar su texto directamente
+        logger.info("Digest-smart: curaduría Kimi exitosa (%d chars)", len(curated_text))
+        messages = [curated_text]
+    else:
+        # Fallback: usar el formatter determinístico
+        logger.warning("Digest-smart: Kimi falló, usando fallback digest.py")
+        messages = format_discord_digest(data, days=days)
+
+    return DigestResponse(
+        messages=messages,
+        stats={
+            "models": len(models),
+            "repos": len(repos),
+            "news": len(news),
+            "courses": len(courses),
+            "curated_by_llm": curated_text is not None,
         },
     )
