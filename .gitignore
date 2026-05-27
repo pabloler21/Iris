@@ -9,3 +9,6 @@ data/
 .DS_Store
 CLAUDE.local.md
 .claude/settings.local.json
+
+# Documentación personal — no va al repo público
+GUIA.md
